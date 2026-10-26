@@ -13,6 +13,7 @@ defined( 'ABSPATH' ) || exit;
 define( 'CANNALAND_PAYMENTS_FILE', __FILE__ );
 define( 'CANNALAND_PAYMENTS_VERSION', '0.3.0' );
 require_once __DIR__ . '/includes/class-support.php';
+require_once __DIR__ . '/includes/class-diagnostics.php';
 require_once __DIR__ . '/includes/class-methods.php';
 require_once __DIR__ . '/includes/class-sinergypay-client.php';
 require_once __DIR__ . '/includes/class-preparation.php';

@@ -3,7 +3,7 @@
 error_reporting( E_ALL );
 set_error_handler( static function ( $level, $message, $file, $line ) { throw new ErrorException( $message, 0, $level, $file, $line ); } );
 define( 'ABSPATH', __DIR__ . '/' );
-define( 'CANNALAND_PAYMENTS_FILE', dirname( __DIR__ ) . '/cannaland-payments.php' );
+define( 'CANNALAND_PAYMENTS_FILE', ( getenv( 'CSP_PLUGIN_ROOT' ) ?: dirname( __DIR__ ) ) . '/cannaland-payments.php' );
 define( 'CANNALAND_PAYMENTS_VERSION', '0.3.0' );
 class WP_Error {
     private string $code; private string $message;
@@ -47,7 +47,7 @@ function wc_get_orders( $args ) {
 }
 function wp_safe_remote_request( $url, $args ) {
     $GLOBALS['requests'][]=[$url,$args];
-    if(isset($GLOBALS['during_http'])) { $f=$GLOBALS['during_http']; unset($GLOBALS['during_http']); $f(); }
+    if(isset($GLOBALS['during_http'])) { $f=$GLOBALS['during_http']; unset($GLOBALS['during_http'],$GLOBALS['throw_redirect']); $f(); }
     if(!$GLOBALS['responses']) { throw new Exception('Unexpected HTTP request'); }
     $response=array_shift($GLOBALS['responses']);
     if($response instanceof Throwable) { throw $response; }
@@ -55,7 +55,7 @@ function wp_safe_remote_request( $url, $args ) {
 }
 function wp_remote_retrieve_response_code( $response ) { return $response['status']; }
 function wp_remote_retrieve_body( $response ) { return $response['body']; }
-class TestLogger { public $events=[]; function info(...$args) { $this->events[]=$args; } }
+class TestLogger { public $events=[],$levels=[]; function info(...$args) { $this->events[]=$args; $this->levels[]='info'; } function error(...$args) { $this->events[]=$args; $this->levels[]='error'; } }
 function wc_get_logger() { return $GLOBALS['logger']; }
 function get_woocommerce_currency() { return $GLOBALS['currency']; }
 function rest_url( $path ) { return 'https://shop.example/wp-json/'.$path; }
@@ -66,10 +66,11 @@ class WC_Payment_Gateway {
     public function init_settings() { $this->settings=get_option('woocommerce_'.$this->id.'_settings',[]); }
     public function get_option($key,$default='') { return $this->settings[$key] ?? $default; }
     public function is_available() { return $this->enabled==='yes'; }
-    public function get_return_url($order) { return 'https://shop.example/received/'.$order->get_id(); }
+    public function get_return_url($order) { if(!empty($GLOBALS['throw_redirect'])) throw new RuntimeException('simulated redirect failure'); return 'https://shop.example/received/'.$order->get_id(); }
 }
 class Order {
     public int $id; public array $meta=[],$notes=[]; public string $status='pending',$currency='MXN',$total='10.00',$transaction='',$method='cannaland_spei';
+    public array $last_saved_meta=[]; public int $save_count=0,$fail_save_number=0; public bool $throw_status=false;
     public int $completions=0; public bool $throw_payment=false,$save_before_paid=false;
     public function __construct($id) { $this->id=$id; }
     public function get_id() { return $this->id; }
@@ -81,9 +82,9 @@ class Order {
     public function get_status() { return $this->status; }
     public function is_paid() { return in_array($this->status,['processing','completed'],true); }
     public function get_transaction_id() { return $this->transaction; }
-    public function save() { return $this->id; }
+    public function save() { ++$this->save_count; if($this->fail_save_number===$this->save_count) { $this->meta=$this->last_saved_meta; throw new RuntimeException('simulated persistence failure'); } $this->last_saved_meta=$this->meta; return $this->id; }
     public function add_order_note($note) { $this->notes[]=$note; }
-    public function update_status($status,$note='') { $this->status=$status; if($note) $this->notes[]=$note; }
+    public function update_status($status,$note='') { if($this->throw_status) throw new RuntimeException('simulated status failure'); $this->status=$status; if($note) $this->notes[]=$note; }
     public function payment_complete($ticket) {
         ++$this->completions;
         if($this->throw_payment) {
@@ -93,7 +94,7 @@ class Order {
         $this->transaction=$ticket; $this->status='processing';
     }
 }
-foreach(['support','sinergypay-client','preparation','notification','webhook','gateway'] as $class) { require dirname(__DIR__).'/includes/class-'.$class.'.php'; }
+foreach(['support','diagnostics','sinergypay-client','preparation','notification','webhook','gateway'] as $class) { require dirname(CANNALAND_PAYMENTS_FILE).'/includes/class-'.$class.'.php'; }
 use Cannaland\Payments\Support;
 use Cannaland\Payments\SinergyPayClient;
 use Cannaland\Payments\Preparation;
@@ -109,7 +110,7 @@ function reset_state() {
     $GLOBALS['orders']=[]; $GLOBALS['responses']=[]; $GLOBALS['requests']=[]; $GLOBALS['lookups']=0; $GLOBALS['uuid']=0;
     $GLOBALS['filters']=[]; $GLOBALS['actions']=[]; $GLOBALS['logger']=new TestLogger; $GLOBALS['currency']='MXN';
     $GLOBALS['wc']=(object)['cart'=>new class { function empty_cart() { $GLOBALS['emptied']=true; } }];
-    unset($GLOBALS['during_http']);
+    unset($GLOBALS['during_http'],$GLOBALS['throw_redirect']);
 }
 function order($id=1) { return $GLOBALS['orders'][$id]=new Order($id); }
 function envelope($data,$status=200) { return ['status'=>$status,'body'=>json_encode(['rc'=>0,'msg'=>'Ok','data'=>$data])]; }
@@ -274,14 +275,14 @@ try { $g->validate_expiration_minutes_field('expiration_minutes','0'); check('in
 catch(Exception $e) { check('invalid expiry rejected',true); }
 check('valid expiry accepted',$g->validate_expiration_minutes_field('expiration_minutes','8640')==='8640');
 foreach(['sb','prod'] as $env) {
-    $key=file_get_contents(dirname(__DIR__).'/resources/keys/sinergy_public_'.$env.'.pem');
+    $key=file_get_contents(dirname(CANNALAND_PAYMENTS_FILE).'/resources/keys/sinergy_public_'.$env.'.pem');
     check('bundled official RSA key loads '.$env,openssl_pkey_get_details(openssl_pkey_get_public($key))['type']===OPENSSL_KEYTYPE_RSA);
 }
-require dirname(__DIR__).'/includes/class-methods.php';
-require dirname(__DIR__).'/includes/class-pending-gateway.php';
+require dirname(CANNALAND_PAYMENTS_FILE).'/includes/class-methods.php';
+require dirname(CANNALAND_PAYMENTS_FILE).'/includes/class-pending-gateway.php';
 foreach(['cards','cash'] as $module) {
-    require dirname(__DIR__).'/modules/'.$module.'/class-payment-service.php';
-    require dirname(__DIR__).'/modules/'.$module.'/class-gateway.php';
+    require dirname(CANNALAND_PAYMENTS_FILE).'/modules/'.$module.'/class-payment-service.php';
+    require dirname(CANNALAND_PAYMENTS_FILE).'/modules/'.$module.'/class-gateway.php';
 }
 reset_state(); $o=ready();
 $GLOBALS['options']['woocommerce_cannaland_cards_settings']=['enabled'=>'yes','title'=>'Tarjetas Cannaland','description'=>'Card module only'];
@@ -325,4 +326,5 @@ foreach([$cards,$cash] as $pending) {
     check('pending customer errors do not expose provider branding',!preg_match('/SinergyPay|Dapp/i',implode(' ',array_column($last,0))));
 }
 check('neutral persistent order lock',Support::lock(99) && array_key_exists('cannaland_payments_order_lock_99',$GLOBALS['options'])); Support::unlock(99);
+require __DIR__.'/diagnostics.php';
 echo "$count assertions passed. Synthetic fixtures and WooCommerce doubles; no live financial API.\n";
