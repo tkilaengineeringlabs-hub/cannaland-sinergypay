@@ -3,8 +3,8 @@
 error_reporting( E_ALL );
 set_error_handler( static function ( $level, $message, $file, $line ) { throw new ErrorException( $message, 0, $level, $file, $line ); } );
 define( 'ABSPATH', __DIR__ . '/' );
-define( 'CANNALAND_SINERGYPAY_FILE', dirname( __DIR__ ) . '/cannaland-sinergypay.php' );
-define( 'CANNALAND_SINERGYPAY_VERSION', '0.2.0' );
+define( 'CANNALAND_PAYMENTS_FILE', dirname( __DIR__ ) . '/cannaland-payments.php' );
+define( 'CANNALAND_PAYMENTS_VERSION', '0.3.0' );
 class WP_Error {
     private string $code; private string $message;
     public function __construct( $code, $message = '' ) { $this->code = $code; $this->message = $message; }
@@ -69,7 +69,7 @@ class WC_Payment_Gateway {
     public function get_return_url($order) { return 'https://shop.example/received/'.$order->get_id(); }
 }
 class Order {
-    public int $id; public array $meta=[],$notes=[]; public string $status='pending',$currency='MXN',$total='10.00',$transaction='',$method='cannaland_sinergypay';
+    public int $id; public array $meta=[],$notes=[]; public string $status='pending',$currency='MXN',$total='10.00',$transaction='',$method='cannaland_spei';
     public int $completions=0; public bool $throw_payment=false,$save_before_paid=false;
     public function __construct($id) { $this->id=$id; }
     public function get_id() { return $this->id; }
@@ -93,15 +93,15 @@ class Order {
         $this->transaction=$ticket; $this->status='processing';
     }
 }
-foreach(['support','api','preparation','notification','webhook','gateway'] as $class) { require dirname(__DIR__).'/includes/class-'.$class.'.php'; }
-use Cannaland\SinergyPay\Support;
-use Cannaland\SinergyPay\Api;
-use Cannaland\SinergyPay\Preparation;
-use Cannaland\SinergyPay\Notification;
-use Cannaland\SinergyPay\NotificationJson;
-use Cannaland\SinergyPay\JsonNumber;
-use Cannaland\SinergyPay\Webhook;
-use Cannaland\SinergyPay\Gateway;
+foreach(['support','sinergypay-client','preparation','notification','webhook','gateway'] as $class) { require dirname(__DIR__).'/includes/class-'.$class.'.php'; }
+use Cannaland\Payments\Support;
+use Cannaland\Payments\SinergyPayClient;
+use Cannaland\Payments\Preparation;
+use Cannaland\Payments\Notification;
+use Cannaland\Payments\NotificationJson;
+use Cannaland\Payments\JsonNumber;
+use Cannaland\Payments\Webhook;
+use Cannaland\Payments\Gateway;
 $count=0;
 function check($name,$condition) { global $count; if(!$condition) throw new Exception('FAIL: '.$name); ++$count; echo "PASS: $name\n"; }
 function reset_state() {
@@ -146,7 +146,7 @@ check('exactly two POSTs',count($GLOBALS['requests'])===2 && $GLOBALS['requests'
 check('SinergyPay sandbox order endpoint',$GLOBALS['requests'][0][0]==='https://sandbox.sinergypay.mx/v2/orders/');
 check('CLABE endpoint',$GLOBALS['requests'][1][0]==='https://sandbox.sinergypay.mx/v2/orders/remote-1/clabe');
 check('Basic uses API key as username',$GLOBALS['requests'][0][1]['headers']['Authorization']==='Basic '.base64_encode('synthetic-test-only:'));
-check('User-Agent supplied',str_starts_with($GLOBALS['requests'][0][1]['headers']['User-Agent'],'CannalandSinergyPay/'));
+check('User-Agent supplied',str_starts_with($GLOBALS['requests'][0][1]['headers']['User-Agent'],'CannalandPayments/'));
 check('amount sent as exact decimal JSON',str_contains($GLOBALS['requests'][0][1]['body'],'"amount":10.00'));
 check('CLABE POST has empty JSON object',$GLOBALS['requests'][1][1]['body']==='{}');
 check('timeout and no redirects',$GLOBALS['requests'][0][1]['timeout']===20 && $GLOBALS['requests'][0][1]['redirection']===0);
@@ -226,16 +226,16 @@ check('webhook while order locked safely retries',$webhook->process($raw)===500 
 check('webhook succeeds once lock released',$webhook->process($raw)===200 && $o->completions===1);
 check('legacy lookup uses Woo data store filter',isset($GLOBALS['legacy_query']['meta_query'][0]) && empty($GLOBALS['filters']['woocommerce_order_data_store_cpt_get_orders_query']));
 eval('namespace Automattic\\WooCommerce\\Utilities; class OrderUtil { public static $enabled=true; static function custom_orders_table_usage_is_enabled(){return self::$enabled;} }');
-check('HPOS reference lookup uses meta_query',Support::find_reference(Support::meta($o,'reference'))===$o && isset($GLOBALS['last_query']['meta_query']) && !isset($GLOBALS['last_query']['csp_reference_lookup']));
+check('HPOS reference lookup uses meta_query',Support::find_reference(Support::meta($o,'reference'))===$o && isset($GLOBALS['last_query']['meta_query']) && !isset($GLOBALS['last_query']['cannaland_payments_reference_lookup']));
 reset_state(); $o=ready(); $raw=signed(event($o));
 check('HPOS notification processed',$webhook->process($raw)===200 && $o->completions===1);
-$webhook->register(); check('REST route stable and POST only',$GLOBALS['route'][0]==='cannaland-sinergypay/v1' && $GLOBALS['route'][1]==='/payment-notification' && $GLOBALS['route'][2]['methods']==='POST');
+$webhook->register(); check('REST route stable and POST only',$GLOBALS['route'][0]==='cannaland-payments/v1' && $GLOBALS['route'][1]==='/payment-notification' && $GLOBALS['route'][2]['methods']==='POST');
 $request=new class($raw) { private $raw; function __construct($raw){$this->raw=$raw;} function get_body(){return $this->raw;} };
 check('REST ACK body minimal',$webhook->receive($request)->data===null && $webhook->receive($request)->status===200);
 Support::log('api_response',200); check('logging off suppresses logs',count($GLOBALS['logger']->events)===0);
 $GLOBALS['options'][Support::OPTION]['logging']='yes'; Support::log('api_response',201); Support::log('Authorization: secret');
 check('logging only safe fixed events',count($GLOBALS['logger']->events)===1 && $GLOBALS['logger']->events[0][0]==='api_response HTTP 201');
-$g=new Gateway; check('gateway ID and availability',$g->id==='cannaland_sinergypay' && $g->is_available());
+$g=new Gateway; check('gateway ID and availability',$g->id==='cannaland_spei' && $g->is_available());
 $GLOBALS['currency']='USD'; check('gateway not offered for USD',!$g->is_available()); $GLOBALS['currency']='MXN';
 reset_state(); $o=order(); queue_success(); $g=new Gateway; $result=$g->process_payment(1);
 check('gateway checkout returns success without paying',$result['result']==='success' && $o->status==='on-hold' && $o->completions===0);
@@ -284,10 +284,10 @@ foreach(['cards','cash'] as $module) {
     require dirname(__DIR__).'/modules/'.$module.'/class-gateway.php';
 }
 reset_state(); $o=ready();
-$GLOBALS['options']['woocommerce_cannaland_sinergypay_cards_settings']=['enabled'=>'yes','title'=>'Tarjetas Cannaland','description'=>'Card module only'];
-$GLOBALS['options']['woocommerce_cannaland_sinergypay_cash_settings']=['enabled'=>'yes','title'=>'Efectivo Cannaland','description'=>'Cash module only'];
-$cards=new Cannaland\SinergyPay\Cards\Gateway;
-$cash=new Cannaland\SinergyPay\Cash\Gateway;
+$GLOBALS['options']['woocommerce_cannaland_cards_settings']=['enabled'=>'yes','title'=>'Tarjetas Cannaland','description'=>'Card module only'];
+$GLOBALS['options']['woocommerce_cannaland_cash_settings']=['enabled'=>'yes','title'=>'Efectivo Cannaland','description'=>'Cash module only'];
+$cards=new Cannaland\Payments\Cards\Gateway;
+$cash=new Cannaland\Payments\Cash\Gateway;
 $spei=new Gateway;
 check('three unique independent gateway IDs',count(array_unique([$cards->id,$spei->id,$cash->id]))===3);
 check('SPEI settings and ID preserved',$spei->id===Support::GATEWAY && $spei->is_available());
@@ -305,9 +305,24 @@ foreach([$cards,$cash] as $pending) {
     check('pending service does not call API or touch SPEI order',count($GLOBALS['requests'])===$before && $snapshot===[$o->meta,$o->status,$o->notes,$o->completions]);
     check('pending gateway field validation fails closed',$pending->validate_fields()===false);
 }
-$GLOBALS['options']['woocommerce_cannaland_sinergypay_cards_settings']['enabled']='no';
-check('cards toggle independent of cash',(new Cannaland\SinergyPay\Cards\Gateway)->enabled==='no' && (new Cannaland\SinergyPay\Cash\Gateway)->enabled==='yes' && (new Gateway)->is_available());
+$GLOBALS['options']['woocommerce_cannaland_cards_settings']['enabled']='no';
+check('cards toggle independent of cash',(new Cannaland\Payments\Cards\Gateway)->enabled==='no' && (new Cannaland\Payments\Cash\Gateway)->enabled==='yes' && (new Gateway)->is_available());
 $GLOBALS['options'][Support::OPTION]['enabled']='no';
-check('SPEI toggle independent of cash',!(new Gateway)->is_available() && (new Cannaland\SinergyPay\Cash\Gateway)->enabled==='yes');
-check('provider client intentionally absent for pending modules',!class_exists('Cannaland\\SinergyPay\\Cards\\Api') && !class_exists('Cannaland\\SinergyPay\\Cash\\Api'));
+check('SPEI toggle independent of cash',!(new Gateway)->is_available() && (new Cannaland\Payments\Cash\Gateway)->enabled==='yes');
+check('provider client intentionally absent for pending modules',!class_exists('Cannaland\\Payments\\Cards\\Api') && !class_exists('Cannaland\\Payments\\Cash\\Api'));
+reset_state(); $o=ready();
+check('neutral metadata prefix',Support::PREFIX==='_cannaland_payments_' && array_reduce(array_keys($o->meta),fn($ok,$key)=>$ok && str_starts_with($key,'_cannaland_payments_'),true));
+check('neutral SPEI settings option',Support::OPTION==='woocommerce_cannaland_spei_settings');
+check('final gateway IDs',array_keys(Cannaland\Payments\Methods::all())===['cannaland_cards','cannaland_spei','cannaland_cash']);
+check('final default customer labels',array_column(Cannaland\Payments\Methods::all(),'title')===['Tarjeta','Transferencia SPEI','Pago en efectivo']);
+$cards=new Cannaland\Payments\Cards\Gateway; $cash=new Cannaland\Payments\Cash\Gateway; $spei=new Gateway;
+check('default labels in classic checkout',$cards->title==='Tarjeta' && $cash->title==='Pago en efectivo' && $spei->title==='Transferencia SPEI');
+ob_start(); $spei->instructions(1); $html=ob_get_clean();
+check('customer SPEI instructions do not expose provider branding',!preg_match('/SinergyPay|Dapp/i',$html));
+foreach([$cards,$cash] as $pending) {
+    $pending->process_payment(1); $pending->validate_fields();
+    $last=array_slice($GLOBALS['notices'],-2);
+    check('pending customer errors do not expose provider branding',!preg_match('/SinergyPay|Dapp/i',implode(' ',array_column($last,0))));
+}
+check('neutral persistent order lock',Support::lock(99) && array_key_exists('cannaland_payments_order_lock_99',$GLOBALS['options'])); Support::unlock(99);
 echo "$count assertions passed. Synthetic fixtures and WooCommerce doubles; no live financial API.\n";

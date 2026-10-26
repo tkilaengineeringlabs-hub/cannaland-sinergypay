@@ -26,7 +26,7 @@ function get_option($key,$default=false){return $GLOBALS['options'][$key] ?? $de
 function get_woocommerce_currency(){return 'MXN';}
 function WC(){return $GLOBALS['wc'];}
 function wp_strip_all_tags($text){return strip_tags($text);}
-function plugins_url($path,$file){return 'https://shop.example/plugins/cannaland-sinergypay/'.$path;}
+function plugins_url($path,$file){return 'https://shop.example/plugins/cannaland-payments/'.$path;}
 function wp_register_script($handle,$url,...$args){$GLOBALS['scripts'][$handle]=$url;}
 function plugin_basename($file){return basename($file);}
 function plugin_dir_path($file){return dirname($file).'/';}
@@ -39,23 +39,23 @@ function wc_get_logger(){return new stdClass;}
 function register_rest_route(...$args){$GLOBALS['routes'][]=$args;}
 function run_action($tag,...$args){foreach($GLOBALS['actions'][$tag] ?? [] as $callback){$callback(...$args);}}
 $GLOBALS['options']=[
- 'woocommerce_cannaland_sinergypay_settings'=>['enabled'=>'yes','environment'=>'sandbox','api_key'=>'synthetic-only','title'=>'Transferencia SPEI'],
- 'woocommerce_cannaland_sinergypay_cards_settings'=>['enabled'=>'yes','title'=>'Tarjetas personalizadas'],
- 'woocommerce_cannaland_sinergypay_cash_settings'=>['enabled'=>'yes','title'=>'Efectivo personalizado'],
+ 'woocommerce_cannaland_spei_settings'=>['enabled'=>'yes','environment'=>'sandbox','api_key'=>'synthetic-only','title'=>'Transferencia SPEI'],
+ 'woocommerce_cannaland_cards_settings'=>['enabled'=>'yes','title'=>'Tarjetas personalizadas'],
+ 'woocommerce_cannaland_cash_settings'=>['enabled'=>'yes','title'=>'Efectivo personalizado'],
 ];
 $original=getenv('CSP_ORIGINAL_ROOT');
 if($original){require $original.'/dapp-woo.php';}
 $plugin_root=getenv('CSP_PLUGIN_ROOT') ?: dirname(__DIR__);
-require $plugin_root.'/cannaland-sinergypay.php';
+require $plugin_root.'/cannaland-payments.php';
 run_action('before_woocommerce_init');
 run_action('plugins_loaded');
 $gateways=[];
 foreach($GLOBALS['filters']['woocommerce_payment_gateways'] ?? [] as $callback){$gateways=$callback($gateways);}
-if(!in_array(Cannaland\SinergyPay\Gateway::class,$gateways,true)){throw new Exception('Gateway missing');}
-$gateway=new Cannaland\SinergyPay\Gateway;
-if($gateway->id!=='cannaland_sinergypay'){throw new Exception('Wrong gateway ID');}
+if(!in_array(Cannaland\Payments\Gateway::class,$gateways,true)){throw new Exception('Gateway missing');}
+$gateway=new Cannaland\Payments\Gateway;
+if($gateway->id!=='cannaland_spei'){throw new Exception('Wrong gateway ID');}
 $instances=[];
-foreach(Cannaland\SinergyPay\Methods::all() as $id=>$definition){
+foreach(Cannaland\Payments\Methods::all() as $id=>$definition){
  if(!in_array($definition['gateway'],$gateways,true)){throw new Exception('Missing gateway '.$id);}
  $instance=new $definition['gateway'];
  if($instance->id!==$id){throw new Exception('Gateway ID mismatch');}
@@ -68,7 +68,7 @@ $GLOBALS['wc']=new class($instances){
  function payment_gateways(){return new class($this->gateways){private $items;function __construct($items){$this->items=$items;}function payment_gateways(){return $this->items;}};}
 };
 $available=array_keys(array_filter($instances,fn($gateway)=>$gateway->is_available()));
-if($available!==['cannaland_sinergypay']){throw new Exception('Classic availability must exclude pending methods');}
+if($available!==['cannaland_spei']){throw new Exception('Classic availability must exclude pending methods');}
 run_action('rest_api_init');
 if(count($GLOBALS['routes'])!==1 || $GLOBALS['routes'][0][2]['methods']!=='POST'){throw new Exception('REST route invalid');}
 run_action('woocommerce_blocks_loaded');
@@ -78,7 +78,7 @@ if(count($registry->items)!==3){throw new Exception('Three Blocks registrations 
 $names=[];
 foreach($registry->items as $item){
  $item->initialize(); $id=$item->get_name(); $names[]=$id;
- $data=$item->get_payment_method_data(); $definition=Cannaland\SinergyPay\Methods::get($id);
+ $data=$item->get_payment_method_data(); $definition=Cannaland\Payments\Methods::get($id);
  if($data['available']!==$instances[$id]->is_available()){throw new Exception('Blocks/classic availability divergence');}
  if($data['title']!==$instances[$id]->title){throw new Exception('Blocks settings not independent');}
  if(isset($data['api_key'])){throw new Exception('Secret exposed to Blocks');}

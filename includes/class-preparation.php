@@ -1,10 +1,10 @@
 <?php
-namespace Cannaland\SinergyPay;
+namespace Cannaland\Payments;
 defined( 'ABSPATH' ) || exit;
 
 final class Preparation {
     public function prepare( int $id ) {
-        if ( ! Support::lock( $id ) ) { return Support::error( 'csp_busy' ); }
+        if ( ! Support::lock( $id ) ) { return Support::error( 'cannaland_payments_busy' ); }
         try { return $this->locked( $id ); }
         catch ( \Throwable $e ) {
             Support::log( 'checkout_internal' );
@@ -24,7 +24,7 @@ final class Preparation {
         $order = wc_get_order( $id );
         if ( ! $order || Support::GATEWAY !== $order->get_payment_method() || $order->is_paid() ||
             ! in_array( $order->get_status(), array( 'pending', 'on-hold', 'failed' ), true ) || 'MXN' !== $order->get_currency() ) {
-            return Support::error( 'csp_order' );
+            return Support::error( 'cannaland_payments_order' );
         }
         $settings = Support::settings();
         $env = Support::environment();
@@ -34,7 +34,7 @@ final class Preparation {
             if ( ! Support::meta( $order, 'order_state' ) && ! Support::meta( $order, 'remote_order_id' ) ) {
                 $this->state( $order, 'order', 'local_error' );
             }
-            return Support::error( 'csp_configuration' );
+            return Support::error( 'cannaland_payments_configuration' );
         }
         if ( ! Support::meta( $order, 'reference' ) ) {
             Support::put( $order, 'reference', 'csp-' . $id . '-' . wp_generate_uuid4() );
@@ -45,17 +45,17 @@ final class Preparation {
             $order->save();
         }
         if ( $env !== Support::meta( $order, 'environment' ) || $amount !== Support::meta( $order, 'amount' ) ||
-            $order->get_currency() !== Support::meta( $order, 'currency' ) ) { return Support::error( 'csp_changed_order' ); }
+            $order->get_currency() !== Support::meta( $order, 'currency' ) ) { return Support::error( 'cannaland_payments_changed_order' ); }
         foreach ( array( 'order', 'clabe' ) as $phase ) {
             if ( 'sending' === Support::meta( $order, $phase . '_state' ) ) {
                 $this->failed( $order, $phase, 'ambiguous' );
-                return Support::error( 'csp_review' );
+                return Support::error( 'cannaland_payments_review' );
             }
         }
         if ( 'ready' === Support::meta( $order, 'preparation' ) && Support::clabe( Support::meta( $order, 'clabe' ) ) ) { return $this->waiting( $order ); }
-        $api = new Api( $env, $settings['api_key'] );
+        $api = new SinergyPayClient( $env, $settings['api_key'] );
         if ( ! Support::meta( $order, 'remote_order_id' ) ) {
-            if ( ! $this->can_send( $order, 'order' ) ) { return Support::error( 'csp_review' ); }
+            if ( ! $this->can_send( $order, 'order' ) ) { return Support::error( 'cannaland_payments_review' ); }
             $this->state( $order, 'order', 'sending' );
             $result = $api->create_order( array( 'amount' => $amount, 'description' => Support::meta( $order, 'description' ),
                 'reference' => Support::meta( $order, 'reference' ), 'expiration_minutes' => $expiration ) );
@@ -77,14 +77,14 @@ final class Preparation {
             $this->state( $order, 'order', 'succeeded' );
         }
         if ( 'succeeded' !== Support::meta( $order, 'order_state' ) || ! Support::id( Support::meta( $order, 'remote_order_id' ) ) ) {
-            return Support::error( 'csp_review' );
+            return Support::error( 'cannaland_payments_review' );
         }
-        if ( ! $this->can_send( $order, 'clabe' ) ) { return Support::error( 'csp_review' ); }
+        if ( ! $this->can_send( $order, 'clabe' ) ) { return Support::error( 'cannaland_payments_review' ); }
         $this->state( $order, 'clabe', 'sending' );
         $result = $api->create_clabe( Support::meta( $order, 'remote_order_id' ) );
         if ( 'success' !== $result['kind'] ) { $this->failed( $order, 'clabe', $result['kind'] ); return Support::error(); }
         if ( ! Support::clabe( $result['data']['clabe'] ?? null ) ) {
-            $this->failed( $order, 'clabe', 'ambiguous' ); return Support::error( 'csp_invalid_clabe' );
+            $this->failed( $order, 'clabe', 'ambiguous' ); return Support::error( 'cannaland_payments_invalid_clabe' );
         }
         Support::put( $order, 'clabe', $result['data']['clabe'] );
         Support::put( $order, 'clabe_state', 'succeeded' );
@@ -94,7 +94,7 @@ final class Preparation {
     }
     private function waiting( $order ) {
         if ( 'on-hold' !== $order->get_status() ) {
-            $order->update_status( 'on-hold', __( 'SinergyPay: en espera de transferencia SPEI.', 'cannaland-sinergypay' ) );
+            $order->update_status( 'on-hold', __( 'Cannaland Payments: en espera de transferencia SPEI.', 'cannaland-payments' ) );
         }
         return $order;
     }
@@ -110,9 +110,9 @@ final class Preparation {
     private function failed( $order, string $phase, string $kind ): void {
         $this->state( $order, $phase, $kind );
         if ( 'ambiguous' === $kind ) {
-            $order->add_order_note( __( 'SinergyPay: resultado incierto al preparar SPEI. Requiere conciliación administrativa; no repetir la operación hasta revisarla con el proveedor.', 'cannaland-sinergypay' ) );
+            $order->add_order_note( __( 'Cannaland Payments: resultado incierto al preparar SPEI. Requiere conciliación administrativa; no repetir la operación hasta revisarla con el proveedor.', 'cannaland-payments' ) );
         } elseif ( 'rejected' === $kind ) {
-            $order->add_order_note( __( 'SinergyPay: solicitud rechazada. Revisar la configuración y el rechazo con el proveedor antes de autorizar otro intento.', 'cannaland-sinergypay' ) );
+            $order->add_order_note( __( 'Cannaland Payments: solicitud rechazada. Revisar la configuración y el rechazo con el proveedor antes de autorizar otro intento.', 'cannaland-payments' ) );
         }
     }
 }

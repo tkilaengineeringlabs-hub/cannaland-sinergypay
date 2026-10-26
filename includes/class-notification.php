@@ -1,5 +1,5 @@
 <?php
-namespace Cannaland\SinergyPay;
+namespace Cannaland\Payments;
 defined( 'ABSPATH' ) || exit;
 
 /** JSON numeric lexeme, intentionally never decoded through a PHP float. */
@@ -84,38 +84,38 @@ final class Notification {
     public function __construct( string $key_directory ) { $this->key_directory = $key_directory; }
     public function verify( string $raw, string $environment ) {
         try { $data = ( new NotificationJson() )->decode( $raw ); }
-        catch ( \Throwable $e ) { return new \WP_Error( 'csp_payload', 'Invalid notification.' ); }
+        catch ( \Throwable $e ) { return new \WP_Error( 'cannaland_payments_payload', 'Invalid notification.' ); }
         if ( ! Support::valid_environment( $environment ) || ! isset( $data->security ) || ! $data->security instanceof \stdClass ) {
-            return new \WP_Error( 'csp_signature', 'Invalid notification.' );
+            return new \WP_Error( 'cannaland_payments_signature', 'Invalid notification.' );
         }
         $security = $data->security;
         if ( ! ( $security->version ?? null ) instanceof JsonNumber || '1' !== $security->version->text ||
             ! is_string( $security->key ?? null ) || strlen( $security->key ) > 200 ||
             ! is_string( $security->signature ?? null ) || strlen( $security->signature ) > 2048 ) {
-            return new \WP_Error( 'csp_signature', 'Invalid notification.' );
+            return new \WP_Error( 'cannaland_payments_signature', 'Invalid notification.' );
         }
         $fields = array();
         foreach ( array( 'id', 'currency', 'amount', 'description', 'reference', 'date' ) as $name ) {
-            if ( ! property_exists( $data, $name ) ) { return new \WP_Error( 'csp_payload', 'Invalid notification.' ); }
+            if ( ! property_exists( $data, $name ) ) { return new \WP_Error( 'cannaland_payments_payload', 'Invalid notification.' ); }
             $value = $data->{$name};
             if ( 'amount' === $name && $value instanceof JsonNumber ) { $value = $value->text; }
-            if ( null !== $value && ! is_string( $value ) ) { return new \WP_Error( 'csp_payload', 'Invalid notification.' ); }
+            if ( null !== $value && ! is_string( $value ) ) { return new \WP_Error( 'cannaland_payments_payload', 'Invalid notification.' ); }
             $fields[$name] = $value ?? '';
             // Delimiter-containing values are ambiguous under the documented unescaped format.
-            if ( str_contains( $fields[$name], '|' ) ) { return new \WP_Error( 'csp_payload', 'Invalid notification.' ); }
+            if ( str_contains( $fields[$name], '|' ) ) { return new \WP_Error( 'cannaland_payments_payload', 'Invalid notification.' ); }
         }
         $signature = base64_decode( $security->signature, true );
         if ( false === $signature || '' === $signature || base64_encode( $signature ) !== $security->signature ) {
-            return new \WP_Error( 'csp_signature', 'Invalid notification.' );
+            return new \WP_Error( 'cannaland_payments_signature', 'Invalid notification.' );
         }
         // security.key is metadata only. Never used as a path, URL or trust selector.
         $file = $this->key_directory . ( 'production' === $environment ? '/sinergy_public_prod.pem' : '/sinergy_public_sb.pem' );
-        if ( ! function_exists( 'openssl_verify' ) || ! is_readable( $file ) ) { return new \WP_Error( 'csp_crypto', 'Notification unavailable.' ); }
+        if ( ! function_exists( 'openssl_verify' ) || ! is_readable( $file ) ) { return new \WP_Error( 'cannaland_payments_crypto', 'Notification unavailable.' ); }
         $key = openssl_pkey_get_public( file_get_contents( $file ) );
-        if ( false === $key ) { return new \WP_Error( 'csp_crypto', 'Notification unavailable.' ); }
+        if ( false === $key ) { return new \WP_Error( 'cannaland_payments_crypto', 'Notification unavailable.' ); }
         // OpenSSL RSA SHA512 uses RSASSA-PKCS1-v1_5, not RSA-PSS.
         $verified = openssl_verify( implode( '|', $fields ), $signature, $key, OPENSSL_ALGO_SHA512 );
-        if ( 1 !== $verified ) { return new \WP_Error( 'csp_signature', 'Invalid notification.' ); }
+        if ( 1 !== $verified ) { return new \WP_Error( 'cannaland_payments_signature', 'Invalid notification.' ); }
         return array( 'signed' => $fields, 'payload' => $data );
     }
 }

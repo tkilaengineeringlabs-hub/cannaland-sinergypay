@@ -1,5 +1,5 @@
 <?php
-namespace Cannaland\SinergyPay;
+namespace Cannaland\Payments;
 defined( 'ABSPATH' ) || exit;
 
 /** One independent WooCommerce Blocks adapter instance per gateway. */
@@ -19,8 +19,8 @@ final class Blocks extends \Automattic\WooCommerce\Blocks\Payments\Integrations\
     }
     public function get_payment_method_script_handles() {
         $definition = Methods::get( $this->name );
-        wp_register_script( $definition['handle'], plugins_url( $definition['script'], CANNALAND_SINERGYPAY_FILE ),
-            array( 'wc-blocks-registry', 'wc-settings', 'wp-element', 'wp-html-entities' ), CANNALAND_SINERGYPAY_VERSION, true );
+        wp_register_script( $definition['handle'], plugins_url( $definition['script'], CANNALAND_PAYMENTS_FILE ),
+            array( 'wc-blocks-registry', 'wc-settings', 'wp-element', 'wp-html-entities' ), CANNALAND_PAYMENTS_VERSION, true );
         return array( $definition['handle'] );
     }
     public function get_payment_method_data() {

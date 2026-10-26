@@ -1,14 +1,14 @@
 <?php
-namespace Cannaland\SinergyPay;
+namespace Cannaland\Payments;
 defined( 'ABSPATH' ) || exit;
 
 final class Webhook {
     private Notification $notification;
     public function __construct( ?Notification $notification = null ) {
-        $this->notification = $notification ?? new Notification( dirname( CANNALAND_SINERGYPAY_FILE ) . '/resources/keys' );
+        $this->notification = $notification ?? new Notification( dirname( CANNALAND_PAYMENTS_FILE ) . '/resources/keys' );
     }
     public function register(): void {
-        register_rest_route( 'cannaland-sinergypay/v1', '/payment-notification', array(
+        register_rest_route( 'cannaland-payments/v1', '/payment-notification', array(
             'methods' => 'POST', 'permission_callback' => '__return_true', 'callback' => array( $this, 'receive' ),
         ) );
     }
@@ -20,7 +20,7 @@ final class Webhook {
             $env = Support::environment();
             $event = $this->notification->verify( $raw, $env );
             if ( is_wp_error( $event ) ) {
-                return 'csp_crypto' === $event->get_error_code() ? 500 : ( 'csp_signature' === $event->get_error_code() ? 401 : 400 );
+                return 'cannaland_payments_crypto' === $event->get_error_code() ? 500 : ( 'cannaland_payments_signature' === $event->get_error_code() ? 401 : 400 );
             }
             $signed = $event['signed'];
             if ( ! Support::id( $signed['id'] ) || ! preg_match( '/^csp-[1-9][0-9]*-[a-f0-9-]{36}$/D', $signed['reference'] ) ||
@@ -73,7 +73,7 @@ final class Webhook {
             // A previous call may have run hooks before crashing. Do not invoke it a second time.
             return 500;
         }
-        $claim = 'csp_ticket_' . hash( 'sha256', $env . '|' . $ticket );
+        $claim = 'cannaland_payments_ticket_' . hash( 'sha256', $env . '|' . $ticket );
         if ( ! add_option( $claim, $s['reference'], '', false ) ) {
             $claimed = get_option( $claim, false );
             if ( false === $claimed ) { return 500; }
@@ -86,15 +86,15 @@ final class Webhook {
             $order->payment_complete( $ticket );
             $order = wc_get_order( $id );
             if ( ! $order || ! $order->is_paid() || $order->get_transaction_id() !== $ticket ) {
-                if ( $order ) { $order->add_order_note( __( 'SinergyPay: confirmación interrumpida; requiere conciliación administrativa.', 'cannaland-sinergypay' ) ); }
+                if ( $order ) { $order->add_order_note( __( 'Cannaland Payments: confirmación interrumpida; requiere conciliación administrativa.', 'cannaland-payments' ) ); }
                 return 500;
             }
             Support::put( $order, 'confirmation_state', 'paid' );
             $order->save();
-            $order->add_order_note( __( 'SinergyPay: pago SPEI confirmado mediante notificación con firma válida.', 'cannaland-sinergypay' ) );
+            $order->add_order_note( __( 'Cannaland Payments: pago SPEI confirmado mediante notificación con firma válida.', 'cannaland-payments' ) );
             return 200;
         } catch ( \Throwable $e ) {
-            $order->add_order_note( __( 'SinergyPay: confirmación interrumpida; requiere conciliación administrativa.', 'cannaland-sinergypay' ) );
+            $order->add_order_note( __( 'Cannaland Payments: confirmación interrumpida; requiere conciliación administrativa.', 'cannaland-payments' ) );
             return 500;
         }
     }

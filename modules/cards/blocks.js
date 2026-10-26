@@ -1,13 +1,13 @@
 (function () {
     'use strict';
-    const settings = window.wc.wcSettings.getSetting('cannaland_sinergypay_cards_data', {});
+    const settings = window.wc.wcSettings.getSetting('cannaland_cards_data', {});
     const text = window.wp.htmlEntities.decodeEntities;
-    const label = text(settings.title || 'Tarjetas');
+    const label = text(settings.title || 'Tarjeta');
     const Content = function () {
         return window.wp.element.createElement('p', null, text(settings.description || ''));
     };
     window.wc.wcBlocksRegistry.registerPaymentMethod({
-        name: 'cannaland_sinergypay_cards',
+        name: 'cannaland_cards',
         label: label,
         ariaLabel: label,
         content: window.wp.element.createElement(Content),

@@ -1,8 +1,8 @@
 <?php
-namespace Cannaland\SinergyPay;
+namespace Cannaland\Payments;
 defined( 'ABSPATH' ) || exit;
 
-final class Api {
+final class SinergyPayClient {
     private string $environment;
     private string $key;
     public function __construct( string $environment, string $key ) {
@@ -32,7 +32,7 @@ final class Api {
         $response = wp_safe_remote_request( $base . $path, array(
             'method' => 'POST', 'timeout' => 20, 'redirection' => 0, 'limit_response_size' => 65536,
             'headers' => array( 'Authorization' => 'Basic ' . base64_encode( $this->key . ':' ),
-                'User-Agent' => 'CannalandSinergyPay/0.1.0', 'Content-Type' => 'application/json', 'Accept' => 'application/json' ),
+                'User-Agent' => 'CannalandPayments/' . CANNALAND_PAYMENTS_VERSION, 'Content-Type' => 'application/json', 'Accept' => 'application/json' ),
             'body' => $json,
         ) );
         if ( is_wp_error( $response ) ) {

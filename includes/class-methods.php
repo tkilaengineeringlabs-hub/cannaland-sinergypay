@@ -1,23 +1,23 @@
 <?php
-namespace Cannaland\SinergyPay;
+namespace Cannaland\Payments;
 defined( 'ABSPATH' ) || exit;
 
 /** Local checkout registration metadata, not a provider API contract. */
 final class Methods {
-    const CARDS = 'cannaland_sinergypay_cards';
-    const CASH = 'cannaland_sinergypay_cash';
+    const CARDS = 'cannaland_cards';
+    const CASH = 'cannaland_cash';
 
     public static function all(): array {
         return array(
-            self::CARDS => array( 'gateway' => Cards\Gateway::class, 'title' => __( 'Tarjetas', 'cannaland-sinergypay' ),
-                'description' => __( 'Integración de tarjetas pendiente de documentación y definición PCI.', 'cannaland-sinergypay' ),
-                'script' => 'modules/cards/blocks.js', 'handle' => 'cannaland-sinergypay-cards-blocks' ),
-            Support::GATEWAY => array( 'gateway' => Gateway::class, 'title' => __( 'Transferencia SPEI', 'cannaland-sinergypay' ),
-                'description' => __( 'Paga mediante transferencia SPEI.', 'cannaland-sinergypay' ),
-                'script' => 'assets/js/blocks.js', 'handle' => 'cannaland-sinergypay-blocks' ),
-            self::CASH => array( 'gateway' => Cash\Gateway::class, 'title' => __( 'Pagos en efectivo', 'cannaland-sinergypay' ),
-                'description' => __( 'Integración de efectivo pendiente de documentación oficial.', 'cannaland-sinergypay' ),
-                'script' => 'modules/cash/blocks.js', 'handle' => 'cannaland-sinergypay-cash-blocks' ),
+            self::CARDS => array( 'gateway' => Cards\Gateway::class, 'title' => __( 'Tarjeta', 'cannaland-payments' ),
+                'description' => __( 'Integración de tarjetas pendiente de documentación y definición PCI.', 'cannaland-payments' ),
+                'script' => 'modules/cards/blocks.js', 'handle' => 'cannaland-payments-cards-blocks' ),
+            Support::GATEWAY => array( 'gateway' => Gateway::class, 'title' => __( 'Transferencia SPEI', 'cannaland-payments' ),
+                'description' => __( 'Paga mediante transferencia SPEI.', 'cannaland-payments' ),
+                'script' => 'assets/js/blocks.js', 'handle' => 'cannaland-payments-blocks' ),
+            self::CASH => array( 'gateway' => Cash\Gateway::class, 'title' => __( 'Pago en efectivo', 'cannaland-payments' ),
+                'description' => __( 'Integración de efectivo pendiente de documentación oficial.', 'cannaland-payments' ),
+                'script' => 'modules/cash/blocks.js', 'handle' => 'cannaland-payments-cash-blocks' ),
         );
     }
     public static function get( string $id ): array {

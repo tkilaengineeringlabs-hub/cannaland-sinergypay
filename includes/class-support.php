@@ -1,11 +1,11 @@
 <?php
-namespace Cannaland\SinergyPay;
+namespace Cannaland\Payments;
 defined( 'ABSPATH' ) || exit;
 
 final class Support {
-    const GATEWAY = 'cannaland_sinergypay';
-    const OPTION = 'woocommerce_cannaland_sinergypay_settings';
-    const PREFIX = '_csp_';
+    const GATEWAY = 'cannaland_spei';
+    const OPTION = 'woocommerce_cannaland_spei_settings';
+    const PREFIX = '_cannaland_payments_';
 
     public static function settings(): array {
         $settings = get_option( self::OPTION, array() );
@@ -36,23 +36,23 @@ final class Support {
     }
     public static function lock( int $id ): bool {
         // Atomic unique option_name insert across workers; no transient/read-then-write lock.
-        return add_option( 'csp_order_lock_' . $id, time(), '', false );
+        return add_option( 'cannaland_payments_order_lock_' . $id, time(), '', false );
     }
     public static function unlock( int $id ): void {
-        delete_option( 'csp_order_lock_' . $id );
+        delete_option( 'cannaland_payments_order_lock_' . $id );
     }
     public static function find_reference( string $reference ) {
         $condition = array( 'key' => self::PREFIX . 'reference', 'value' => $reference, 'compare' => '=' );
         $hpos = class_exists( '\Automattic\WooCommerce\Utilities\OrderUtil' ) &&
             \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
         $legacy = static function ( $query, $vars ) use ( $condition ) {
-            if ( isset( $vars['csp_reference_lookup'] ) ) { $query['meta_query'][] = $condition; }
+            if ( isset( $vars['cannaland_payments_reference_lookup'] ) ) { $query['meta_query'][] = $condition; }
             return $query;
         };
         $args = array( 'limit' => 2, 'return' => 'ids', 'type' => 'shop_order', 'payment_method' => self::GATEWAY );
         if ( $hpos ) { $args['meta_query'] = array( $condition ); }
         else {
-            $args['csp_reference_lookup'] = true;
+            $args['cannaland_payments_reference_lookup'] = true;
             add_filter( 'woocommerce_order_data_store_cpt_get_orders_query', $legacy, 10, 2 );
         }
         try { $ids = wc_get_orders( $args ); }
@@ -62,9 +62,9 @@ final class Support {
     public static function log( string $event, int $status = 0 ): void {
         if ( 'yes' !== ( self::settings()['logging'] ?? 'no' ) || ! function_exists( 'wc_get_logger' ) ) { return; }
         if ( ! in_array( $event, array( 'api_response', 'api_network', 'webhook_internal', 'checkout_internal' ), true ) ) { return; }
-        wc_get_logger()->info( $event . ( $status ? ' HTTP ' . $status : '' ), array( 'source' => 'cannaland-sinergypay' ) );
+        wc_get_logger()->info( $event . ( $status ? ' HTTP ' . $status : '' ), array( 'source' => 'cannaland-payments' ) );
     }
-    public static function error( string $code = 'csp_unavailable' ): \WP_Error {
-        return new \WP_Error( $code, __( 'No fue posible preparar la transferencia. Contacta a la tienda antes de volver a intentarlo.', 'cannaland-sinergypay' ) );
+    public static function error( string $code = 'cannaland_payments_unavailable' ): \WP_Error {
+        return new \WP_Error( $code, __( 'No fue posible preparar la transferencia. Contacta a la tienda antes de volver a intentarlo.', 'cannaland-payments' ) );
     }
 }

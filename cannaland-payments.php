@@ -1,20 +1,20 @@
 <?php
 /**
- * Plugin Name: Cannaland SinergyPay
- * Description: Métodos independientes SinergyPay para WooCommerce: SPEI implementado; tarjetas y efectivo en preparación.
- * Version: 0.2.0
+ * Plugin Name: Cannaland Payments
+ * Description: Pasarela de pagos integrada para Cannaland.
+ * Version: 0.3.0
  * Requires at least: 6.2
  * Requires PHP: 8.0
  * Requires Plugins: woocommerce
  * WC requires at least: 8.2
- * Text Domain: cannaland-sinergypay
+ * Text Domain: cannaland-payments
  */
 defined( 'ABSPATH' ) || exit;
-define( 'CANNALAND_SINERGYPAY_FILE', __FILE__ );
-define( 'CANNALAND_SINERGYPAY_VERSION', '0.2.0' );
+define( 'CANNALAND_PAYMENTS_FILE', __FILE__ );
+define( 'CANNALAND_PAYMENTS_VERSION', '0.3.0' );
 require_once __DIR__ . '/includes/class-support.php';
 require_once __DIR__ . '/includes/class-methods.php';
-require_once __DIR__ . '/includes/class-api.php';
+require_once __DIR__ . '/includes/class-sinergypay-client.php';
 require_once __DIR__ . '/includes/class-preparation.php';
 require_once __DIR__ . '/includes/class-notification.php';
 require_once __DIR__ . '/includes/class-webhook.php';
@@ -28,7 +28,7 @@ add_action( 'before_woocommerce_init', static function () {
 add_action( 'plugins_loaded', static function () {
     if ( ! class_exists( 'WC_Payment_Gateway' ) || ! defined( 'WC_VERSION' ) || version_compare( WC_VERSION, '8.2', '<' ) ) {
         add_action( 'admin_notices', static function () {
-            echo '<div class="notice notice-error"><p>' . esc_html__( 'Cannaland SinergyPay requiere WooCommerce 8.2 o posterior.', 'cannaland-sinergypay' ) . '</p></div>';
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Cannaland Payments requiere WooCommerce 8.2 o posterior.', 'cannaland-payments' ) . '</p></div>';
         } );
         return;
     }
@@ -39,19 +39,19 @@ add_action( 'plugins_loaded', static function () {
         require_once __DIR__ . '/modules/' . $module . '/class-gateway.php';
     }
     add_filter( 'woocommerce_payment_gateways', static function ( $gateways ) {
-        foreach ( \Cannaland\SinergyPay\Methods::all() as $method ) { $gateways[] = $method['gateway']; }
+        foreach ( \Cannaland\Payments\Methods::all() as $method ) { $gateways[] = $method['gateway']; }
         return $gateways;
     } );
     add_action( 'rest_api_init', static function () {
-        ( new \Cannaland\SinergyPay\Webhook() )->register();
+        ( new \Cannaland\Payments\Webhook() )->register();
     } );
 } );
 add_action( 'woocommerce_blocks_loaded', static function () {
     if ( class_exists( '\Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType' ) ) {
         require_once __DIR__ . '/includes/class-blocks.php';
         add_action( 'woocommerce_blocks_payment_method_type_registration', static function ( $registry ) {
-            foreach ( array_keys( \Cannaland\SinergyPay\Methods::all() ) as $id ) {
-                $registry->register( new \Cannaland\SinergyPay\Blocks( $id ) );
+            foreach ( array_keys( \Cannaland\Payments\Methods::all() ) as $id ) {
+                $registry->register( new \Cannaland\Payments\Blocks( $id ) );
             }
         } );
     }
