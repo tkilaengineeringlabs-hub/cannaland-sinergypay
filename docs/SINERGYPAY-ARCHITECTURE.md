@@ -1,118 +1,127 @@
-# Cannaland: integración directa SinergyPay
+# Cannaland SinergyPay — arquitectura implementada 0.1.0
 
-Decisión del usuario: Dapp sirve únicamente como referencia de arquitectura WooCommerce.
-El pendiente de validación del lookup Dapp queda cancelado y no condiciona este producto.
-Esta revisión documenta el diseño; no constituye una implementación SinergyPay operativa.
+La arquitectura propuesta anteriormente queda implementada con las aclaraciones del usuario.
+El contrato es SPEI directo. La base anterior permanece en main/historial; no hay dependencia
+operativa de sus endpoints, clases, IDs, consultas, webhooks ni recursos visuales.
+Gateway y slug lógico: `cannaland_sinergypay` y `cannaland-sinergypay` respectivamente.
 
-## Evidencia
+## Fuentes y decisiones
 
-- Confirmaciones directas del equipo, aportadas por el usuario: notificación como única confirmación;
-  no integrar GET /payments ni polling; amount conserva su texto original para la firma;
-  CLABE de 18 dígitos; las transferencias no aceptadas se devuelven automáticamente.
-- Fuente oficial localizada: https://sinergypay.mx/documentacion/
-- Contrato enlazado: https://sinergypay.mx/wp-content/uploads/2026/05/V3-Comercios-SPEI.pdf
-- Llaves públicas: https://media.sinergypay.mx/sw/public_keys.zip
-- No apareció documentación SinergyPay en el árbol del repositorio ni en las búsquedas de Drive.
+Fuente oficial: https://sinergypay.mx/documentacion/ y su PDF V3 Comercios SPEI
+https://sinergypay.mx/wp-content/uploads/2026/05/V3-Comercios-SPEI.pdf.
+Llaves oficiales: https://media.sinergypay.mx/sw/public_keys.zip.
+Las confirmaciones del equipo comunicadas por el usuario prevalecen: notificación como única
+confirmación, sin polling; texto original de amount para firma; CLABE de exactamente 18 dígitos;
+las transferencias no aceptadas se devuelven por el proveedor.
 
-Contrato resumido: bases sandbox.sinergypay.mx/v2 y api.sinergypay.mx/v2 por HTTPS.
-Basic(API_KEY:), User-Agent obligatorio, JSON. POST /orders/ requiere amount y description;
-reference, expiration_minutes, success_page y error_page son opcionales. Devuelve rc/msg/data
-con id, creation_date, expiration_date, description, amount, currency, reference_num.
-POST /orders/{order_id}/clabe devuelve data.clabe; no se describen parámetros adicionales.
-Expiración predeterminada: seis días. Webhook POST JSON, con ticket id, code, reference,
-reference_num, amount, currency, description, date, payments y security.
-Firma versión 1: id|currency|amount|description|reference|date, null como vacío;
-RSA PKCS#1 v1.5 con SHA-512. security contiene key, version y signature.
+Bases HTTPS: sandbox.sinergypay.mx/v2 y api.sinergypay.mx/v2. Autenticación Basic(API_KEY:),
+User-Agent y JSON. Únicas operaciones salientes: POST /orders/ y POST /orders/{id}/clabe.
+Se envían amount, description, reference y expiration_minutes. Se guarda id, expiration_date
+y reference_num de la respuesta de creación, y clabe de la segunda respuesta.
+Llaves: sinergy_public_sb.pem/sinergy_public_prod.pem fijas según entorno; versión de firma 1.
+Cadena: id|currency|amount|description|reference|date; null vacío; RSA PKCS#1 v1.5/SHA-512.
 
-## Diseño propuesto (decisiones locales, no contrato del proveedor)
+## Componentes
 
-1. Gateway independiente `wc_cannaland_sinergypay`, namespace `Cannaland\SinergyPay`,
-   opciones propias y dominio de traducción `cannaland-sinergypay`.
-2. Checkout valida MXN, orden pendiente y datos mínimos; crea referencia aleatoria única
-   persistida por CRUD, ligada a la orden y al ambiente antes de cualquier solicitud externa.
-3. Bajo mutex atómico, crea la orden remota. Guarda inmediatamente el identificador recibido,
-   monto/moneda esperados y fecha de vencimiento. Nunca convierte una respuesta incierta
-   en permiso para repetir la creación.
-4. Solicita CLABE para ese identificador. Solo acepta un string de exactamente 18 dígitos.
-   La generación de CLABE puede tener incertidumbre propia: no asumir que repetir POST es idempotente.
-5. Muestra instrucciones SPEI, CLABE escapada, monto, moneda y vencimiento.
-   No vacía o paga la orden por navegar, recibir una CLABE ni visitar la página de agradecimiento.
-6. Callback propio lee bytes RAW una vez. Un parseo estructural limitado permite recuperar los
-   campos de firma sin usarlos todavía para localizar órdenes, elegir URLs o producir efectos.
-   amount se conserva como texto; no pasa por float/int antes de verificar.
-7. Selecciona exclusivamente una llave pública local de confianza para el ambiente y verifica
-   el procedimiento del proveedor. Nunca descarga una llave elegida por el request.
-8. Solo después de verificar, busca la referencia firmada por APIs WooCommerce, exige exactamente
-   una orden del gateway/ambiente y adquiere el mismo mutex de esa orden. Recarga su estado.
-9. Verifica referencia, monto exacto en decimal y moneda frente a los valores guardados;
-   verifica correspondencia de identificadores según el alcance firmado real.
-10. Si ya está pagada con ese ticket, reconoce el duplicado sin notas ni efectos adicionales.
-    Si ya está pagada con otro ticket, rechaza y requiere conciliación.
-11. Para un evento oficial válido, llama payment_complete(ticket), guarda evidencia mínima de
-    idempotencia mediante CRUD y una nota sin secretos. Los detalles HTTP del acuse se cerrarán
-    con el contrato de recepción. No hay consulta remota de confirmación ni fallback de polling.
+| Archivo | Responsabilidad |
+|---|---|
+| cannaland-sinergypay.php | Entrada, carga, registro del gateway y declaraciones HPOS/Blocks |
+| includes/class-support.php | Configuración, decimales exactos, metadatos, mutex y búsqueda WooCommerce |
+| includes/class-api.php | Transporte HTTPS, JSON decimal exacto y clasificación de resultados |
+| includes/class-preparation.php | Estados persistentes de creación y CLABE, snapshots y espera |
+| includes/class-notification.php | JSON acotado, lexemas numéricos, claves duplicadas y RSA |
+| includes/class-webhook.php | REST POST, correlación, validación e idempotencia |
+| includes/class-gateway.php | Ajustes, checkout e instrucciones escapadas |
+| includes/class-blocks.php y assets/js/blocks.js | Registro en Checkout Blocks |
+| resources/keys/ | Llaves públicas oficiales locales |
 
-## Límite criptográfico importante
+No hay AJAX propio. La autorización del checkout queda en los flujos estándar de WooCommerce.
+No se anuncia soporte de reembolsos; el método no llama APIs financieras fuera de crear orden/CLABE.
 
-El esquema firmado no incluye code, reference_num ni el arreglo payments.
-No basta verificar la firma y después localizar la orden usando code: ese dato no está autenticado
-por la cadena documentada. La referencia única enviada al crear la orden debe regresar en el
-campo reference firmado y ser la correlación principal. Esto necesita una muestra verificable.
-Tampoco se atribuye integridad criptográfica a Product, wallet ni payments[].id.
-Como candidato a transaction ID se usa el ticket raíz id, que sí integra la firma; no se confunde
-con el identificador remoto de la orden ni con un pago anidado no firmado.
+## Checkout
 
-Rechazar sin efectos: firma ausente/inválida, versión no admitida, llave desconocida,
-JSON malformado, campos ambiguos, orden inexistente, referencia/monto/moneda incorrectos,
-evento no identificado como notificación oficial o pago distinto de uno ya contabilizado.
-Duplicado auténtico del mismo ticket se reconoce sin volver a confirmar.
+1. El gateway valida disponibilidad MXN; Preparation valida moneda y estado de la orden.
+2. Adquiere mutex atómico por orden. Guarda referencia UUID estable y snapshots de entorno,
+   monto, moneda y descripción antes del primer POST.
+3. Persiste order_state=sending; crea orden. Guarda inmediatamente el ID remoto si es válido.
+   Verifica el resto de la respuesta antes de order_state=succeeded.
+4. Persiste clabe_state=sending; solicita CLABE para el ID guardado. Exige string de 18 dígitos,
+   conservando ceros iniciales. Guarda clabe_state=succeeded y preparation=ready.
+5. Bajo el mismo bloqueo, pone el pedido en on-hold. El gateway redirige a pedido recibido.
+   Las instrucciones no hacen llamadas remotas y no marcan pagado.
+6. Un checkout repetido reutiliza una preparación completa. No recrea operaciones inciertas.
 
-## Mapa de componentes
+Importes: hasta diez dígitos enteros y dos decimales; solo MXN. La API recibe un número JSON
+con decimal exacto sin float. Las respuestas documentadas de monto y CLABE deben ser strings.
+Formatos no admitidos fallan de manera segura y requieren revisión; validar contra sandbox.
 
-| Dapp original | Equivalente SinergyPay | Acción |
-|---|---|---|
-| Entrada, autoload y Hooks.php | Bootstrap/hook propios Cannaland | Reutilizar arquitectura, cambiar identidad |
-| WC_DappWoo | Gateway SPEI | Reutilizar arquitectura; reescribir comportamiento |
-| settings y SettingsTrait | API key privada, ambiente y configuración de callback/llaves | Reescribir |
-| ApiConnector/ApiInterface | Transporte HTTPS SinergyPay | Reutilizar arquitectura y hardening |
-| DappWooApi/DappWooSdk | Cliente SinergyPay | Reescribir; retirar cliente Dapp del runtime |
-| RequestDepositAction | Preparación de orden y CLABE | Reescribir |
-| PostCheckout/gateway.js | Instrucciones SPEI | Reescribir; retirar redirección/QR |
-| Webhooks/HandlePaymentTrait | Verificador y procesador de notificación | Reescribir |
-| DatabaseTrait | Búsqueda por referencia firmada mediante WooCommerce | Reutilizar arquitectura HPOS |
-| Bloqueo y marca de creación incierta | Mutex y estados propios de preparación | Reutilizar arquitectura, renombrar y ampliar para CLABE |
-| Logging restringido | Eventos mínimos Cannaland | Reutilizar arquitectura |
-| CountryCurrencyTrait | Restricción MXN | Reutilizar tras revisar moneda de la orden |
-| API de validación/registro de webhooks Dapp | Aprovisionamiento de callback SinergyPay | Eliminar; no copiar endpoints |
-| Reembolso Dapp | Sin equivalente respaldado en este alcance | Eliminar del runtime nuevo; no anunciar soporte |
-| Assets y metadatos Dapp | Assets e identificadores propios | Eliminar dependencia; no migrar pagos Dapp automáticamente |
-| Tests legacy Dapp | Suite propia SPEI/criptografía | Reescribir; conservar referencia en historial |
+## Notificación
 
-No se realizará un reemplazo global de nombres. La base original permanece en main/historial.
-No se incorporarán dominios Dapp, dapp-codes, QR ni sus IDs al runtime final.
+Ruta REST propia: POST /wp-json/cannaland-sinergypay/v1/payment-notification.
+La URL real se obtiene con rest_url() y aparece en los ajustes. No hay registro remoto automático.
 
-## Datos aún necesarios
+1. Lee body RAW. Máximo 64 KiB, profundidad JSON 16; rechaza claves duplicadas y JSON malformado.
+2. Recupera campos estructurales sin usarlos para buscar órdenes ni ejecutar efectos.
+   amount conserva el valor string o el lexema numérico original, sin float.
+3. Exige versión 1 y firma Base64 estricta. Verifica con la llave local del entorno.
+   security.key se comprueba solo como campo estructural; nunca selecciona la confianza.
+4. Solo después verifica formato de la notificación SPEI y busca la referencia firmada mediante
+   wc_get_orders. HPOS usa meta_query; legacy usa el filtro del data store de WooCommerce.
+   Exige exactamente una orden con el gateway y toma su mutex.
+5. Recarga la orden. Verifica referencia, entorno, preparación, descripción, monto exacto,
+   moneda y total actual. code debe coincidir con el ID remoto guardado como control adicional.
+6. El identificador financiero es el ticket raíz id firmado. code, payments y Product NO están
+   cubiertos por la firma: son controles de consistencia, nunca correlación o identidad financiera.
+   No se inventa un campo de estado ni se confía en la CLABE como prueba de pago.
+7. Un ticket ya aplicado a esa orden responde 200 sin repetir notas/payment_complete.
+   Una orden ya pagada con otro ticket se rechaza. Un claim global evita usar el mismo ticket
+   para dos órdenes. Se guarda confirmation_state=applying ANTES de payment_complete(ticket).
+8. Tras éxito, guarda estado paid y nota segura. Si la llamada queda interrumpida sin constancia
+   suficiente de éxito, requiere conciliación y no vuelve a invocar efectos de pago.
 
-1. Relación exacta entre security.key y los archivos oficiales. El ejemplo usa un identificador
-   hexadecimal; el ZIP contiene nombres sinergy_public_prod.pem y sinergy_public_sb.pem,
-   en representaciones pkcs1 y pkcs8. No se asumirá que cualquier identificador es alias válido.
-2. Evento RAW firmado verificable por cada ambiente, incluyendo caracteres no ASCII y referencia
-   enviada por el comercio. Confirmar representación real de amount y encoding de la cadena;
-   el ejemplo textual no constituye una prueba criptográfica completa del contrato operativo.
-3. Registro del callback: procedimiento/API oficial o configuración manual del proveedor;
-   no hay evidencia para reutilizar el endpoint de registro Dapp.
-4. Acuse HTTP esperado, política de reintentos y eventos de pago aceptado frente a otros eventos.
-5. Confirmar idempotencia o procedimiento de conciliación de creación y generación CLABE
-   ante timeout/respuesta perdida. No se inventará una idempotency key del proveedor.
-6. Para integración real: credenciales sandbox mediante canal seguro, datos bancarios de
-   presentación (banco/beneficiario si proceden), configuración del comercio y pruebas SPEI.
+Los null se convierten en vacíos únicamente para la cadena firmada. La aceptación financiera
+además exige identificadores, referencia y monto válidos y coherentes. Campos con | se rechazan
+por ambigüedad del formato delimitado. No se reformatea el texto firmado ni se ordena JSON.
 
-La confirmación directa del usuario sobre CLABE prevalece sobre el ejemplo inconsistente del PDF.
-La retirada de soporte de GET /payments comunicada por el usuario prevalece sobre su inclusión
-histórica en el documento. No se implementará ese endpoint.
+ACK local mínimo (sin body contractual): 200 procesado/duplicado, 400 malformado, 401 firma,
+409 orden inexistente/inconsistente, 500 error interno/bloqueo/conciliación de confirmación.
+Respuestas sin datos de orden. Estas convenciones deben validarse con SinergyPay en sandbox.
 
-Llaves descargadas de la URL oficial, representaciones PUBLIC KEY (SHA-256 del archivo):
-- producción: 2b3e89d14edcb688e6b97b9de1f3bee688e49c495b33300eb9b241b7ef66786a
-- sandbox: a35fb06c2afd31e6f65a3f2827cd4209fb45cc1c43a6cf5ebc42f12e1d2df9ff
+## Metadatos de orden (CRUD WooCommerce)
 
-La descarga quedó en /tmp; no se copiaron claves privadas, credenciales ni un ZIP al repositorio.
+| Clave | Uso |
+|---|---|
+| _csp_reference | Referencia única estable firmada y correlación principal |
+| _csp_environment | Entorno de la operación |
+| _csp_amount | Snapshot decimal normalizado de monto |
+| _csp_currency | Snapshot de moneda MXN |
+| _csp_description | Descripción enviada y esperada firmada |
+| _csp_remote_order_id | ID de orden SinergyPay |
+| _csp_reference_num | Referencia numérica del proveedor, cuando viene |
+| _csp_expiration_date | Vencimiento recibido, preservado con zona horaria |
+| _csp_clabe | CLABE validada de 18 dígitos |
+| _csp_order_state | Estado de creación de orden |
+| _csp_clabe_state | Estado de generación CLABE |
+| _csp_preparation | ready cuando terminó la preparación |
+| _csp_transaction_id | Ticket firmado de confirmación |
+| _csp_confirmation_state | applying o paid |
+
+El transaction ID estándar de WooCommerce se guarda mediante payment_complete(ticket).
+Opciones auxiliares sin autoload: csp_order_lock_{id} (mutex) y csp_ticket_{SHA256(env|ticket)}
+(claim permanente de ticket). Ajustes: woocommerce_cannaland_sinergypay_settings.
+No hay consultas SQL directas a posts/postmeta, secretos en metadatos ni payloads persistidos.
+
+## Estados y límites de recuperación
+
+Por fase: ausencia (sin intento), local_error (no enviado, corregible sin riesgo remoto), sending
+(persistido antes de enviar), succeeded (respuesta validada), rejected (rechazo explícito conocido)
+y ambiguous (resultado incierto). Un sending encontrado tras interrupción se transforma en ambiguous.
+
+Un WP_Error de transporte, HTTP 5xx, respuesta truncada/inválida/incompleta o timeout se considera
+ambiguo. Un rechazo explícito rc no cero en 2xx o determinados 4xx se clasifica rejected;
+HTML de proxy, 408 y 429 permanecen ambiguos. No hay bucles de reintento ni idempotencia remota
+atribuida al proveedor. Incluso rejected necesita revisión para autorizar una nueva operación.
+
+Ver OPERATIONS.md antes de cualquier intervención. La prevención de efectos duplicados es
+conservadora: ante un fallo entre hooks y escrituras, puede sacrificar confirmación automática
+para exigir conciliación. No se promete una transacción distribuida exactamente-una-vez.
