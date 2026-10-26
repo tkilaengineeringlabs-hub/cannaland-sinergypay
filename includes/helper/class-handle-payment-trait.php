@@ -1,57 +1,30 @@
 <?php
-/**
- * HandlePayment Trait
- *
- * @package Conexa\DappWoo\Helper
- */
-
 namespace Conexa\DappWoo\Includes\Helper;
-
 use Conexa\DappWoo\Sdk\DappWooSdk;
-use Conexa\DappWoo\Gateway\WC_DappWoo;
+use Conexa\DappWoo\Gateway\RequestDepositAction;
 
 trait HandlePaymentTrait {
-
-	/**
-	 * Gets Payment Response
-	 *
-	 * @param string $order_id Order Id Data.
-	 * @param string $test Order Id Data.
-	 */
-	public static function handle_payment( $order_id, $test = '' ) {
-		if ( null !== $order_id ) {
-			$order      = wc_get_order( $order_id );
-			$order_data = $order->get_meta( '_DAPP_PAYMENT_ID' );
-		}
-
-		if ( isset( $order_data ) || 'CHECKOUT_TEST' === $test ) {
-
-			$options  = Helper::get_options( \DappWoo::GATEWAY_ID );
-			$sdk      = new DappWooSdk( $options['api_token'] );
-			$response = $sdk->get_payment_data( $order_data );
-
-			if ( isset( $response['data'] ) || 'CHECKOUT_TEST' === $test ) {
-
-					$order->payment_complete();
-					$order->add_order_note(
-						sprintf(
-							/* translators: %s: System Flag */
-							esc_html__( 'Dapp - Approved Payment. ID %s', 'dappwoo' ),
-							$order_data
-						)
-					);
-
-					$order->update_meta_data(
-						\DappWoo::META_ORDER_PAYMENT_ID_INTERNAL,
-						$response['data']['id']
-					);
-
-					$order->save();
-
-				return true;
-			}
-		}
-		return false;
-	}
-
+    public static function handle_payment( $order_id, $test = '' ) {
+        if ( ! $order_id || ! self::acquire_order_lock( $order_id ) ) { return false; }
+        try {
+            $order = wc_get_order( $order_id );
+            if ( ! $order || \DappWoo::GATEWAY_ID !== $order->get_payment_method() ) { return false; }
+            $code = $order->get_meta( \DappWoo::META_ORDER_PAYMENT_ID );
+            if ( ! RequestDepositAction::valid_id( $code ) ) { return false; }
+            // A previously recorded Dapp confirmation can be acknowledged without side effects.
+            if ( $order->is_paid() ) {
+                return RequestDepositAction::valid_id( $order->get_meta( \DappWoo::META_ORDER_PAYMENT_ID_INTERNAL ) );
+            }
+            $options = self::get_options();
+            if ( empty( $options['api_token'] ) ) { return false; }
+            $sdk = new DappWooSdk( $options['api_token'] );
+            $response = $sdk->get_payment_data( $code );
+            if ( is_wp_error( $response ) || ! is_array( $response ) || ! is_array( $response['data'] ?? null ) ) { return false; }
+            // The notification schema is documented, but the authenticated lookup schema and
+            // its settlement semantics are not verified. Never approve by data presence.
+            // Implement a strict validator only after obtaining the lookup contract/fixtures.
+            self::log( 'Payment confirmation blocked: API contract unverified.' );
+            return false;
+        } finally { self::release_order_lock( $order_id ); }
+    }
 }

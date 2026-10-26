@@ -44,6 +44,7 @@ jQuery( document ).ready(
 					action: settings.action,
 					order_id: settings.order_id,
 					nonce: settings.ajax_nonce,
+                    order_key: settings.order_key,
 				}
 
 				$.post(
@@ -54,20 +55,20 @@ jQuery( document ).ready(
 						if (response.success) {
 
 							console.log( 'dapp-cta' )
-							console.log( response )
+
 							window.location.href = response.data;
 							removeSpinner()
 						} else {
 							console.log( 'onFailurePost' )
-							console.log( response.data )
+
 
 							$( "#dapp-cta" ).addClass( "disabled" );
 							$( "#alert_text" ).addClass( "woocommerce-info" );
-							$( '.woocommerce-info' ).html( response.data );
+							$( '.woocommerce-info' ).text( response.data );
 							removeSpinner()
 						}
 					}
-				)
+				).fail(function () { removeSpinner(); $("#alert_text").text("Payment service unavailable. Contact customer service before retrying."); })
 
 			}
 			$( '#dapp-cta' ).click(

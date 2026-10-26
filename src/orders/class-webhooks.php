@@ -29,7 +29,7 @@ class Webhooks {
 	 *
 	 * @return bool
 	 */
-	public static function listener( string $data = null, $test = '' ) {
+	public static function listener( ?string $data = null, $test = '' ) {
 
 		// Takes raw data from the request.
 		if ( is_null( $data ) || empty( $data ) ) {
@@ -39,11 +39,7 @@ class Webhooks {
 		}
 
 		Helper::log( 'Webhook received' );
-		Helper::log(
-			__FUNCTION__ .
-				__( '- Webhook received from Dapp:', 'dappwoo' ) .
-				$json
-		);
+
 
 		$process = self::process_webhook( $json, $test );
 
@@ -86,7 +82,7 @@ class Webhooks {
 		// Converts it into a PHP object.
 		$data = json_decode( $json, true );
 
-		if ( self::validate_input( $data ) ) {
+		if ( JSON_ERROR_NONE === json_last_error() && is_array( $data ) && self::validate_input( $data ) ) {
 			$order_id = self::get_order_id( $data );
 			return Helper::handle_payment( $order_id, $test );
 		}
@@ -104,8 +100,8 @@ class Webhooks {
 	 */
 	public static function get_order_id( array $data ) {
 
-		if ( isset( $data['code'] ) ) {
-			$dapp_id = filter_var( $data['code'], FILTER_SANITIZE_STRING );
+		if ( \Conexa\DappWoo\Gateway\RequestDepositAction::valid_id( $data['code'] ?? null ) ) {
+			$dapp_id = $data['code'];
 			return Helper::find_order_by_itemmeta_value(
 				\DappWoo::META_ORDER_PAYMENT_ID,
 				$dapp_id
@@ -124,9 +120,9 @@ class Webhooks {
 	 */
 	public static function validate_input( array $data ) {
 		$return = true;
-		$data   = wp_unslash( $data );
 
-		if ( ! isset( $data['code'] ) || empty( $data['code'] ) ) {
+
+		if ( ! \Conexa\DappWoo\Gateway\RequestDepositAction::valid_id( $data['code'] ?? null ) ) {
 			Helper::log(
 				__FUNCTION__ .
 					__( '- Webhook received without code.', 'dappwoo' )

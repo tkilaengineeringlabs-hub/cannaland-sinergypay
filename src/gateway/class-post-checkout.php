@@ -28,7 +28,7 @@ class PostCheckout {
 	public static function render( $order_id ) {
 		$order = wc_get_order( $order_id );
 
-		if ( \DappWoo::GATEWAY_ID !== $order->get_payment_method() ) {
+		if ( ! $order || \DappWoo::GATEWAY_ID !== $order->get_payment_method() ) {
 			return false;
 		}
 
@@ -98,7 +98,8 @@ class PostCheckout {
 				action: "dapp_request_deposit_action",
 				ajax_url : "<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>",
 				order_id : "<?php echo esc_html( $order_id ); ?>",
-				spinner_id : 'dapp-container-spinner',
+				order_key : <?php echo wp_json_encode( $order->get_order_key(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ); ?>,
+                spinner_id : 'dapp-container-spinner',
 				spinner_url : '<?php echo esc_url( Helper::get_assets_folder_url() ); ?>/img/loading-spinner.png',
 				ajax_nonce : "<?php echo esc_attr( wp_create_nonce( \DappWoo::GATEWAY_ID ) ); ?>", 
 				//phpcs:ignore WordPress.Security.NonceVerification.Recommended

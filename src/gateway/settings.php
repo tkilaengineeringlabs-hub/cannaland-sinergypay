@@ -16,6 +16,7 @@ return apply_filters(
 			'title'   => __( 'Activar/desactivar', 'dappwoo' ),
 			'type'    => 'checkbox',
 			'label'   => __( ' Habilitar pasarela de pago de Dapp', 'dappwoo' ),
+            'description' => __( 'Hardening en revisión: la confirmación automática de pagos nuevos está bloqueada hasta verificar el contrato de consulta de Dapp. No desplegar esta revisión en producción.', 'dappwoo' ),
 			'default' => 'yes',
 		),
 

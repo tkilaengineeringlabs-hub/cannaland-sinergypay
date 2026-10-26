@@ -1,44 +1,28 @@
 <?php
-/**
- * Class DatabaseTrait
- *
- * @package  Conexa\DappWoo\Helper\DatabaseTrait
- */
-
 namespace Conexa\DappWoo\Includes\Helper;
 
-/**
- * Database Trait
- */
 trait DatabaseTrait {
+    public static function find_order_by_itemmeta_value( string $meta_key, string $meta_value ) {
+        $condition = array( 'key' => $meta_key, 'value' => $meta_value, 'compare' => '=' );
+        $legacy = function ( $query, $vars ) use ( $condition ) {
+            if ( isset( $vars['dapp_lookup'] ) ) { $query['meta_query'][] = $condition; }
+            return $query;
+        };
+        $hpos = class_exists( '\Automattic\WooCommerce\Utilities\OrderUtil' ) &&
+            \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
+        $args = array( 'limit' => 2, 'return' => 'ids', 'type' => 'shop_order', 'payment_method' => \DappWoo::GATEWAY_ID );
+        if ( $hpos ) { $args['meta_query'] = array( $condition ); }
+        else { $args['dapp_lookup'] = true; add_filter( 'woocommerce_order_data_store_cpt_get_orders_query', $legacy, 10, 2 ); }
+        try { $ids = wc_get_orders( $args ); }
+        finally { if ( ! $hpos ) { remove_filter( 'woocommerce_order_data_store_cpt_get_orders_query', $legacy, 10 ); } }
+        return count( $ids ) === 1 ? (int) reset( $ids ) : false;
+    }
 
-	/**
-	 * Find an order id by itemmeta value
-	 *
-	 * @param string $meta_key Defines Key to looking for orders.
-	 * @param string $meta_value Defines Values to looking for orders.
-	 *
-	 * @return int|false
-	 */
-	public static function find_order_by_itemmeta_value(
-		string $meta_key,
-		string $meta_value
-	) {
-		global $wpdb;
-
-		$order_meta = $wpdb->prefix . 'postmeta';
-		$query      = "SELECT post_id as order_id
-        FROM {$order_meta}
-        WHERE  meta_key = '%s'
-        AND meta_value = '%s';";
-		$row        = $wpdb->get_row(
-			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-			$wpdb->prepare( $query, $meta_key, $meta_value ),
-			ARRAY_A
-		);
-		if ( ! empty( $row ) ) {
-			return (int) $row['order_id'];
-		}
-		return false;
-	}
+    // add_option uses the unique option_name index across PHP workers. No unsafe TTL takeover.
+    public static function acquire_order_lock( $order_id ) {
+        return add_option( 'dappwoo_order_lock_' . (int) $order_id, time(), '', false );
+    }
+    public static function release_order_lock( $order_id ) {
+        delete_option( 'dappwoo_order_lock_' . (int) $order_id );
+    }
 }
