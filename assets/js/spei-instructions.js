@@ -51,11 +51,13 @@
         button.disabled = true;
         try {
             const success = text !== '' && await copy(text);
+            button.dataset.copyState = success ? 'copied' : 'idle';
             button.textContent = success ? button.dataset.copiedLabel : button.dataset.copyLabel;
             if (status) status.textContent = success ? button.dataset.copiedLabel : button.dataset.copyError;
             if (success) {
                 window.clearTimeout(button.copyResetTimer);
                 button.copyResetTimer = window.setTimeout(() => {
+                    button.dataset.copyState = 'idle';
                     button.textContent = button.dataset.copyLabel;
                     if (status) status.textContent = '';
                 }, 2200);

@@ -2,7 +2,7 @@
 
 Pasarela de pagos integrada para Cannaland.
 SinergyPay se utiliza como proveedor de infraestructura/API para SPEI.
-Versión 0.3.3. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
+Versión 0.3.4. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
 Incluye registro independiente en checkout clásico y WooCommerce Blocks; no hay selector interno.
 
 | Método | Gateway ID | Estado actual |
@@ -20,7 +20,7 @@ No se presenta su estructura como si ya fueran métodos utilizables.
 
 ## Instalación y configuración
 
-Instala `dist/cannaland-payments-0.3.3.zip` desde Plugins → Añadir plugin → Subir plugin.
+Instala `dist/cannaland-payments-0.3.4.zip` desde Plugins → Añadir plugin → Subir plugin.
 Activa WooCommerce y Cannaland Payments. En WooCommerce → Ajustes → Pagos → Transferencia SPEI configura:
 
 - Habilitar/deshabilitar, título y descripción.
@@ -97,7 +97,7 @@ Sus adaptadores UI y servicios se extenderán dentro de cada módulo; SPEI no ne
 
 ## Diagnóstico SPEI
 
-La versión 0.3.3 conserva el marcador de log `diagnostics=spei-v1`.
+La versión 0.3.4 conserva el marcador de log `diagnostics=spei-v1`.
 Con Registro seguro habilitado, buscar fuente `cannaland-payments` en WooCommerce > Estado >
 Registros. El logger global debe estar activo y su umbral debe permitir Info para ver los hitos;
 los fallos se registran como Error. Ver OPERATIONS.md para eventos, campos y límites de privacidad.
@@ -135,3 +135,10 @@ La referencia csp-ID-UUID se conserva exactamente: participa en firma, correlaci
 
 Pruebas locales: `php tests/run.php`, `php tests/bootstrap-smoke.php`,
 `node tests/blocks.test.js`, `node tests/spei-instructions.test.js`, `python3 scripts/check.py`.
+
+## Diseño web 0.3.4
+
+La tarjeta SPEI usa fondo #171b1f/#20262b, texto blanco y acento #9BE22D con estilos
+limitados a .cannaland-payments-spei. Importe destacado, botones con foco visible y estado
+verde de copiado, vencimiento y nota final en cajas sutiles. Móvil apila label/valor/botón.
+Emails conservan su presentación simple. No cambian pagos, referencia ni datos copiados.

@@ -1,4 +1,4 @@
-# Cannaland Payments — arquitectura multimétodo 0.3.3
+# Cannaland Payments — arquitectura multimétodo 0.3.4
 
 La arquitectura propuesta anteriormente queda implementada con las aclaraciones del usuario.
 El flujo implementado es SPEI directo; tarjeta y efectivo siguen como módulos pendientes. SinergyPay permanece como proveedor de infraestructura/API. La base anterior permanece en main/historial; no hay dependencia
@@ -217,3 +217,9 @@ proveedor, mantener unicidad suficiente y añadir aceptación explícita de ambo
 webhook. No puede cambiarse solo el generador: el patrón actual la rechazaría. Nunca renombrar
 referencias ya emitidas. Validar contrato/firmas/correlación en sandbox antes de adoptar un formato
 nuevo. Esta versión solo usa wrapping visual y copia el valor original completo.
+
+## Estilo web 0.3.4
+
+Solo cambia la identidad visual de la tarjeta .cannaland-payments-spei: fondo oscuro, texto
+blanco y acento verde. El atributo data-copy-state refleja el feedback ya existente para CSS;
+no cambia el algoritmo de copia. Emails, datos y lógica financiera permanecen intactos.

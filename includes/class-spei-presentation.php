@@ -99,7 +99,7 @@ final class SpeiPresentation {
         echo '</dl><footer class="cannaland-payments-spei__footer">';
         self::copy_button( 'all', __( 'Copiar todos los datos SPEI', 'cannaland-payments' ) );
         echo '<span class="cannaland-payments-spei__status" role="status" aria-live="polite" aria-atomic="true"></span></footer>';
-        echo '<p class="cannaland-payments-spei__notice">' . esc_html__( 'Transfiere el importe exacto. Tu pedido se confirmará automáticamente cuando se reciba la confirmación del pago.', 'cannaland-payments' ) . '</p></section>';
+        echo '<p class="cannaland-payments-spei__notice">' . esc_html__( 'Transfiere el importe exacto. Tu pedido se confirmará automáticamente cuando se reciba la confirmación válida de pago.', 'cannaland-payments' ) . '</p></section>';
     }
     private static function copy_button( string $key, string $label ): void {
         echo '<button type="button" class="cannaland-payments-spei__copy" hidden data-spei-copy="' . esc_attr( $key ) . '" aria-label="' . esc_attr( $label ) . '" data-copy-label="' . esc_attr__( 'all' === $key ? 'Copiar datos' : 'Copiar', 'cannaland-payments' ) . '" data-copied-label="' . esc_attr__( 'Copiado ✓', 'cannaland-payments' ) . '" data-copy-error="' . esc_attr__( 'No se pudo copiar. Selecciona el valor y cópialo manualmente.', 'cannaland-payments' ) . '">' . esc_html__( 'all' === $key ? 'Copiar datos' : 'Copiar', 'cannaland-payments' ) . '</button>';

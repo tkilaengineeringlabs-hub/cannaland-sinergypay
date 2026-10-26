@@ -233,3 +233,17 @@ entre pedidos, feedback/restauración, fallback por falta de API o permisos, lim
 No equivalen a una prueba con navegadores/clientes de correo reales. Falta revisar apariencia
 con el tema Horsements y compatibilidad del portapapeles en sus navegadores objetivo.
 No se hicieron llamadas financieras ni se añadió un evento de webhook en esta tarea.
+
+
+## Identidad visual web — 0.3.4
+
+El CSS de la tarjeta deja de heredar colores del tema: fondo #171b1f/#20262b, blanco principal,
+#c7cdd1 secundario y #9BE22D para importe, acento, foco y botones principales/copiados.
+Bordes blancos suaves, radio 14px y sombra ligera. Vencimiento y nota usan cajas verdes sutiles.
+Todos los selectores están bajo .cannaland-payments-spei, incluidos hover/focus y media queries;
+no hay reglas globales para botones, tablas ni WooCommerce. En móvil <=600px se apilan label,
+valor y botón (44px mínimo). La referencia se mantiene íntegra con wrapping.
+Solo se añade data-copy-state al feedback actual del JS para aplicar el estilo de copiado;
+no se cambian portapapeles, valores ni tiempos. La nota final web usa «confirmación válida de
+pago». No se modifican las ramas de renderizado de email ni se les aplica este CSS oscuro.
+Validación local automatizada; apariencia final con el tema Horsements pendiente de revisión visual.

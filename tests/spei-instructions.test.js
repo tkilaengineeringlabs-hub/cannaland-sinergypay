@@ -59,7 +59,9 @@ function environment(mode = 'clipboard') {
         await env.click(button);
         check('individual '+key+' copies exact visible value',env.writes.at(-1)===env.one.values[key]);
         check('individual '+key+' success feedback accessible',button.textContent==='Copiado ✓' && env.one.status.textContent==='Copiado ✓' && !button.disabled);
+        check('copied visual state '+key,button.dataset.copyState==='copied');
         env.timers.at(-1)();
+        check('idle visual state restored '+key,button.dataset.copyState==='idle');
         check('individual '+key+' label restored',button.textContent==='Copiar' && env.one.status.textContent==='');
     }
     await env.click(env.one.buttons.all);
@@ -94,5 +96,12 @@ function environment(mode = 'clipboard') {
     check('responsive long-value wrapping and mobile breakpoint',css.includes('overflow-wrap: anywhere') && css.includes('minmax(0, 1fr)') && css.includes('@media (max-width: 600px)'));
     check('touch targets and keyboard focus styles',css.includes('min-height: 44px') && css.includes(':focus-visible'));
     check('no external dependency or financial request',!/(fetch\(|XMLHttpRequest|jQuery|https?:\/\/)/.test(script));
+    // Parse every rule prelude, including nested media rules; no global selectors are allowed.
+    const cleanCss = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const selectors = [...cleanCss.matchAll(/([^{}]+)\{/g)].map(m=>m[1].trim()).filter(s=>!s.startsWith('@media'));
+    check('all CSS selector branches strictly rooted in SPEI component',selectors.length>20 && selectors.every(s=>s.split(',').every(branch=>/^\.cannaland-payments-spei(?=[\s.#[:]|$)/.test(branch.trim()))));
+    check('explicit dark card white text and green accent',css.includes('background: #171b1f') && css.includes('#20262b') && css.includes('color: #ffffff') && css.includes('#9BE22D'));
+    check('copied visual state has explicit styling',css.includes('[data-copy-state="copied"]') && css.includes('color: #171b1f'));
+    check('expiry and information boxes retain requested colors',css.includes('rgba(155,226,45,.55)') && css.includes('rgba(155,226,45,.06)') && css.includes('color: #e7f5d4'));
     console.log('PASS: '+checks+' SPEI clipboard/CSS JS assertions (DOM doubles).');
 }()).catch(error=>{ console.error(error); process.exitCode=1; });
