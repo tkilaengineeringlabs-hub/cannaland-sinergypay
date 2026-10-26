@@ -1,7 +1,7 @@
 === Cannaland Payments ===
 Requires at least: 6.2
 Requires PHP: 8.0
-Stable tag: 0.3.0
+Stable tag: 0.3.1
 Tags: woocommerce, spei, payments
 
 Pasarela de pagos integrada para Cannaland.
@@ -31,6 +31,10 @@ Se bloquea el reintento automático y se requiere conciliación administrativa.
 No. Solo la notificación válida puede confirmar automáticamente un pago nuevo.
 
 == Changelog ==
+= 0.3.1 =
+Acepta importes JSON enteros y decimales válidos al crear órdenes SinergyPay.
+Conserva controles de importe, firma, idempotencia y logging seguro.
+
 = 0.3.0 =
 Identidad Cannaland Payments, IDs y metadatos neutrales, callback y empaquetado propios.
 Proveedor SinergyPay conservado; sin cambios en la lógica SPEI.

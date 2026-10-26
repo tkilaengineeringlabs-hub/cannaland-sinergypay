@@ -150,9 +150,14 @@ result: success/local_error/rejected/ambiguous/blocked/reused/in_progress/not_se
 certainty distingue confirmed, definitive_local, definitive_rejection, ambiguous y not_attempted.
 Un 5xx, timeout o estructura inesperada continúa siendo ambiguo; el diagnóstico no cambia esa regla.
 
-Ejemplos LOCALES sintéticos (no evidencia de Horsements):
-- order_response_validation + amount_type_invalid y field_types.amount=integer/double:
-  respuesta rechazada por la validación existente que exige amount textual. No se relajó el contrato.
+Corrección 0.3.1: la evidencia sandbox de Horsements mostró HTTP 200, rc=0, msg=Ok,
+ID string y amount double, sin CLABE en la creación. La validación local exigía string
+y bloqueaba una orden remota ya creada. Ahora admite enteros y floats finitos válidos
+a precisión de centavos, además de strings decimales. CLABE solo se valida en su propia respuesta.
+
+Ejemplos de errores aún rechazados:
+- order_response_validation + amount_type_invalid: importe inválido, no finito, fuera de rango
+  o con fracciones de centavo; amount_mismatch: importe válido distinto al pedido.
 - clabe_response_validation + invalid_clabe_length/type/characters: CLABE inválida, sin mostrar su valor.
 - order_state_validation/clabe_state_validation + phase_blocked: operación previa requiere revisión.
 - remote_order_persistence/clabe_persistence + preparation_exception: fallo de la llamada CRUD.
@@ -160,7 +165,7 @@ Ejemplos LOCALES sintéticos (no evidencia de Horsements):
 
 El código anterior solo registraba cuatro eventos genéricos de nivel Info; devoluciones tempranas y
 validaciones de respuesta eran silenciosas. Eso es una deficiencia de observabilidad demostrada,
-no una prueba de la causa del fallo observado en Horsements. Hace falta una nueva prueba sandbox
+separada del bug de tipo de importe confirmado por la evidencia de Horsements. Hace falta una nueva prueba sandbox
 controlada, tras instalar el ZIP, y sus entradas de log. Un pedido ambiguo debe conciliarse: no borrar
 sus estados ni sus identificadores para forzar un POST. Este build no recupera respuestas históricas.
 No se hicieron llamadas financieras reales durante este cambio.

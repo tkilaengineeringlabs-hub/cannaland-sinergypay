@@ -2,6 +2,7 @@
 """Build an allowlisted, single-root installable plugin ZIP. No secrets or development files."""
 from pathlib import Path
 import hashlib
+import re
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
@@ -13,7 +14,10 @@ files += sorted((root / 'modules').rglob('*.js'))
 files += [root / 'assets/js/blocks.js', root / 'resources/keys/README.md']
 files += sorted((root / 'resources/keys').glob('sinergy_public_*.pem'))
 assert len(files) == 25, 'Review package manifest after adding runtime files'
-out = root / 'dist/cannaland-payments.zip'
+main = (root / 'cannaland-payments.php').read_text()
+version = re.search(r' \* Version: ([0-9]+\.[0-9]+\.[0-9]+)', main).group(1)
+assert f"define( 'CANNALAND_PAYMENTS_VERSION', '{version}' );" in main
+out = root / f'dist/cannaland-payments-{version}.zip'
 out.parent.mkdir(exist_ok=True)
 with zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
     for path in files:

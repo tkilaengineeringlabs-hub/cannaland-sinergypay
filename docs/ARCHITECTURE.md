@@ -1,4 +1,4 @@
-# Cannaland Payments — arquitectura multimétodo 0.3.0
+# Cannaland Payments — arquitectura multimétodo 0.3.1
 
 La arquitectura propuesta anteriormente queda implementada con las aclaraciones del usuario.
 El flujo implementado es SPEI directo; tarjeta y efectivo siguen como módulos pendientes. SinergyPay permanece como proveedor de infraestructura/API. La base anterior permanece en main/historial; no hay dependencia
@@ -92,7 +92,11 @@ No se anuncia soporte de reembolsos; el método no llama APIs financieras fuera 
 6. Un checkout repetido reutiliza una preparación completa. No recrea operaciones inciertas.
 
 Importes: hasta diez dígitos enteros y dos decimales; solo MXN. La API recibe un número JSON
-con decimal exacto sin float. Las respuestas documentadas de monto y CLABE deben ser strings.
+con decimal exacto sin float. La respuesta de creación admite amount como string decimal, entero o float JSON finito
+que represente exactamente centavos al reconvertir el decimal normalizado al mismo float.
+Se rechazan fracciones de centavo, valores no numéricos y valores fuera de rango. La CLABE
+debe seguir siendo string de 18 dígitos y solo se exige al generar CLABE, no al crear la orden.
+La normalización numérica no se utiliza para el amount RAW firmado del webhook.
 Formatos no admitidos fallan de manera segura y requieren revisión; validar contra sandbox.
 
 ## Notificación

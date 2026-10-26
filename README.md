@@ -2,7 +2,7 @@
 
 Pasarela de pagos integrada para Cannaland.
 SinergyPay se utiliza como proveedor de infraestructura/API para SPEI.
-Versión 0.3.0. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
+Versión 0.3.1. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
 Incluye registro independiente en checkout clásico y WooCommerce Blocks; no hay selector interno.
 
 | Método | Gateway ID | Estado actual |
@@ -20,7 +20,7 @@ No se presenta su estructura como si ya fueran métodos utilizables.
 
 ## Instalación y configuración
 
-Instala `dist/cannaland-payments.zip` desde Plugins → Añadir plugin → Subir plugin.
+Instala `dist/cannaland-payments-0.3.1.zip` desde Plugins → Añadir plugin → Subir plugin.
 Activa WooCommerce y Cannaland Payments. En WooCommerce → Ajustes → Pagos → Transferencia SPEI configura:
 
 - Habilitar/deshabilitar, título y descripción.
@@ -97,9 +97,14 @@ Sus adaptadores UI y servicios se extenderán dentro de cada módulo; SPEI no ne
 
 ## Diagnóstico SPEI
 
-El ZIP de diagnóstico mantiene la versión 0.3.0 y agrega el marcador de log `diagnostics=spei-v1`.
+La versión 0.3.1 conserva el marcador de log `diagnostics=spei-v1`.
 Con Registro seguro habilitado, buscar fuente `cannaland-payments` en WooCommerce > Estado >
 Registros. El logger global debe estar activo y su umbral debe permitir Info para ver los hitos;
 los fallos se registran como Error. Ver OPERATIONS.md para eventos, campos y límites de privacidad.
 Las trazas no incluyen cuerpos, encabezados, CLABE, API keys ni textos externos arbitrarios.
 No representan una prueba real exitosa de sandbox ni autorizan reintentar un POST ambiguo.
+
+La corrección 0.3.1 acepta `data.amount` como entero, decimal JSON finito con precisión de centavos
+o cadena decimal válida en la respuesta de creación. No exige CLABE en `/orders/`.
+Los pedidos históricos ambiguos siguen requiriendo conciliación; no se reintentan automáticamente.
+Pendiente una nueva prueba sandbox real que complete la generación de CLABE y la preparación.
