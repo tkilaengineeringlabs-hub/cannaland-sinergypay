@@ -1,7 +1,7 @@
 # Hardening del plugin Dapp original
 
 > Documento histórico. El objetivo Dapp y su lookup pendiente quedaron sustituidos por la
-> integración directa descrita en [SINERGYPAY-ARCHITECTURE.md](SINERGYPAY-ARCHITECTURE.md).
+> integración directa descrita en [ARCHITECTURE.md](ARCHITECTURE.md).
 > No continuar el desarrollo del flujo Dapp.
 
 Estado: revisión parcial; NO lista para producción. No cambia los endpoints ni implementa SinergyPay.

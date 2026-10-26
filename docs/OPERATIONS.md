@@ -1,4 +1,4 @@
-# Operación y validación pendiente
+# Cannaland Payments — operación y validación pendiente
 
 ## Estado multimétodo
 
@@ -27,7 +27,7 @@ pendientes esperando notificación en la misma instalación. Usar staging separa
 
 ## Resultado incierto y conciliación
 
-Revisar metadatos _csp_order_state, _csp_clabe_state y las notas del pedido. Si hay ambiguous o
+Revisar metadatos _cannaland_payments_order_state, _cannaland_payments_clabe_state y las notas del pedido. Si hay ambiguous o
 sending interrumpido, consultar al equipo SinergyPay usando la referencia estable y el ID remoto
 si existe. NO borrar el ID ni resetear el estado para volver a probar un POST.
 No usar la existencia de una CLABE/transferencia como confirmación de pago.
@@ -36,9 +36,9 @@ Para un rechazo definitivo, corregir su causa y revisar con el proveedor antes d
 intento. Esta versión no ofrece un botón de reset: la recuperación es administrativa, mediante
 CRUD WooCommerce por personal autorizado y con evidencia del proveedor.
 
-Un proceso abortado puede dejar csp_order_lock_{id}. Antes de eliminarlo, comprobar que no hay
+Un proceso abortado puede dejar cannaland_payments_order_lock_{id}. Antes de eliminarlo, comprobar que no hay
 un worker activo ni una operación financiera pendiente de conciliación. No tiene TTL ni takeover
-que pueda permitir dos envíos simultáneos. Los claims csp_ticket_* no deben borrarse durante
+que pueda permitir dos envíos simultáneos. Los claims cannaland_payments_ticket_* no deben borrarse durante
 reintentos ni usarse como permiso para volver a completar un pago.
 
 Si confirmation_state=applying y la orden no figura pagada con el mismo transaction ID, hay una
@@ -81,3 +81,25 @@ disponibilidad separados, sin selector. No es una prueba de navegador.
 
 Las pruebas locales no prueban interoperabilidad con SinergyPay ni compatibilidad integral de
 WooCommerce/HPOS/Blocks. No se afirma que se haya realizado un pago real.
+
+## Transición de desarrollo a identidad 0.3.0
+
+La carpeta y entrada instalables son cannaland-payments/cannaland-payments.php. Los tres IDs y
+opciones cambian a cannaland_cards, cannaland_spei y cannaland_cash y sus opciones
+woocommerce_<gateway_id>_settings. El namespace es Cannaland\Payments, el text domain y fuente
+segura de logging son cannaland-payments y los metadatos usan _cannaland_payments_.
+
+Callback nuevo: POST /wp-json/cannaland-payments/v1/payment-notification. Debe proporcionarse
+a SinergyPay antes de probar las notificaciones; no hay alias de la ruta anterior.
+
+Este cambio reemplaza identificadores en código. No ejecuta una migración automática de una base
+de datos de WordPress ni convierte órdenes existentes. Reconfigurar los tres ajustes en staging.
+Si hay pedidos de desarrollo pendientes, conciliarlos antes de reemplazar el plugin; cualquier
+traslado de sus metadatos, gateway, bloqueos y claims debe preservar íntegramente referencias,
+IDs remotos, entorno, monto y evidencia de idempotencia mediante CRUD y revisión administrativa.
+No reiniciar operaciones ni usar el cambio de nombre para generar una segunda orden remota.
+No activar ambas versiones del producto sobre las mismas operaciones pendientes.
+
+El valor opaco reference conserva su formato existente csp-ID-UUID: se transmite y firma como
+dato del proveedor. Solo cambia el nombre local de su metadato. Las llaves públicas oficiales,
+campos de payload, rutas remotas y procedimiento criptográfico no se renombraron.

@@ -1,10 +1,10 @@
-=== Cannaland SinergyPay ===
+=== Cannaland Payments ===
 Requires at least: 6.2
 Requires PHP: 8.0
-Stable tag: 0.2.0
+Stable tag: 0.3.0
 Tags: woocommerce, spei, payments
 
-Métodos SinergyPay independientes para WooCommerce: SPEI implementado; tarjetas y efectivo estructurados.
+Pasarela de pagos integrada para Cannaland.
 
 == Description ==
 Tres gateways independientes para WooCommerce 8.2 o posterior. SPEI requiere MXN y OpenSSL.
@@ -21,7 +21,7 @@ No se ha validado todavía contra sandbox real. Las pruebas disponibles son sint
 
 == Frequently Asked Questions ==
 = ¿Cuál es el callback? =
-POST /wp-json/cannaland-sinergypay/v1/payment-notification en tu dominio.
+POST /wp-json/cannaland-payments/v1/payment-notification en tu dominio.
 La URL exacta de la instalación aparece en los ajustes.
 
 = ¿Qué ocurre si se pierde una respuesta de creación? =
@@ -31,6 +31,10 @@ Se bloquea el reintento automático y se requiere conciliación administrativa.
 No. Solo la notificación válida puede confirmar automáticamente un pago nuevo.
 
 == Changelog ==
+= 0.3.0 =
+Identidad Cannaland Payments, IDs y metadatos neutrales, callback y empaquetado propios.
+Proveedor SinergyPay conservado; sin cambios en la lógica SPEI.
+
 = 0.2.0 =
 Arquitectura multimétodo: gateways/ajustes/Blocks independientes; tarjetas y efectivo pendientes.
 SPEI conserva identificador, opciones y flujo de pago.

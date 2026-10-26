@@ -1,17 +1,17 @@
-# Cannaland SinergyPay — arquitectura multimétodo 0.2.0
+# Cannaland Payments — arquitectura multimétodo 0.3.0
 
 La arquitectura propuesta anteriormente queda implementada con las aclaraciones del usuario.
-El contrato es SPEI directo. La base anterior permanece en main/historial; no hay dependencia
+El flujo implementado es SPEI directo; tarjeta y efectivo siguen como módulos pendientes. SinergyPay permanece como proveedor de infraestructura/API. La base anterior permanece en main/historial; no hay dependencia
 operativa de sus endpoints, clases, IDs, consultas, webhooks ni recursos visuales.
-Slug de plugin: `cannaland-sinergypay`; nombre general: Cannaland SinergyPay.
+Slug de plugin: `cannaland-payments`; nombre general: Cannaland Payments.
 
 ## Gateways independientes
 
 | Método | ID | Opciones | Módulo |
 |---|---|---|---|
-| Tarjetas | cannaland_sinergypay_cards | woocommerce_cannaland_sinergypay_cards_settings | modules/cards |
-| Transferencia SPEI | cannaland_sinergypay | woocommerce_cannaland_sinergypay_settings | Implementación SPEI existente en includes |
-| Pagos en efectivo | cannaland_sinergypay_cash | woocommerce_cannaland_sinergypay_cash_settings | modules/cash |
+| Tarjeta | cannaland_cards | woocommerce_cannaland_cards_settings | modules/cards |
+| Transferencia SPEI | cannaland_spei | woocommerce_cannaland_spei_settings | Implementación SPEI existente en includes |
+| Pago en efectivo | cannaland_cash | woocommerce_cannaland_cash_settings | modules/cash |
 
 Methods es un registro local de clases, nombres y recursos; no dirige pagos ni contiene contratos
 remotos. Cada gateway tiene habilitación, título, descripción, hook de guardado y script Blocks
@@ -31,14 +31,15 @@ seguro; cada módulo debe implementar sus propios validate_fields/process_paymen
 No deben habilitarse solo cambiando is_ready: falta implementar el flujo completo.
 
 No se recopilan PAN/CVV ni se asumen tokenización, formularios hospedados, PCI o redirecciones.
-El cliente Api y callback actuales siguen siendo SPEI; no se reutilizan para fingir otros productos.
+El cliente SinergyPayClient y callback actuales siguen siendo SPEI; no se reutilizan para fingir otros productos.
 El transporte/logging solo se compartirán donde los contratos realmente coincidan.
 
 ## Implementación SPEI conservada
 
-Las siguientes secciones describen exclusivamente SPEI. Sus clases de preparación, cliente API,
-firma, webhook, utilidades de montos, bloqueo y persistencia no se modificaron en esta extensión.
-El gateway mantiene su ID/opciones; solo cambia su título predeterminado a Transferencia SPEI.
+Las siguientes secciones describen exclusivamente SPEI. Sus clases de preparación, cliente proveedor,
+firma, webhook, utilidades de montos, bloqueo y persistencia solo recibieron cambios de identidad
+en 0.3.0; no cambios de lógica funcional.
+La versión 0.3.0 usa los IDs/opciones neutrales de la tabla anterior y mantiene Transferencia SPEI como título predeterminado.
 Los títulos guardados por el comerciante se conservan.
 
 ## Fuentes y decisiones
@@ -61,9 +62,9 @@ Cadena: id|currency|amount|description|reference|date; null vacío; RSA PKCS#1 v
 
 | Archivo | Responsabilidad |
 |---|---|
-| cannaland-sinergypay.php | Entrada, carga, registro del gateway y declaraciones HPOS/Blocks |
+| cannaland-payments.php | Entrada, carga, registro del gateway y declaraciones HPOS/Blocks |
 | includes/class-support.php | Configuración, decimales exactos, metadatos, mutex y búsqueda WooCommerce |
-| includes/class-api.php | Transporte HTTPS, JSON decimal exacto y clasificación de resultados |
+| includes/class-sinergypay-client.php | Transporte HTTPS, JSON decimal exacto y clasificación de resultados |
 | includes/class-preparation.php | Estados persistentes de creación y CLABE, snapshots y espera |
 | includes/class-notification.php | JSON acotado, lexemas numéricos, claves duplicadas y RSA |
 | includes/class-webhook.php | REST POST, correlación, validación e idempotencia |
@@ -96,7 +97,7 @@ Formatos no admitidos fallan de manera segura y requieren revisión; validar con
 
 ## Notificación
 
-Ruta REST propia: POST /wp-json/cannaland-sinergypay/v1/payment-notification.
+Ruta REST propia: POST /wp-json/cannaland-payments/v1/payment-notification.
 La URL real se obtiene con rest_url() y aparece en los ajustes. No hay registro remoto automático.
 
 1. Lee body RAW. Máximo 64 KiB, profundidad JSON 16; rechaza claves duplicadas y JSON malformado.
@@ -130,24 +131,24 @@ Respuestas sin datos de orden. Estas convenciones deben validarse con SinergyPay
 
 | Clave | Uso |
 |---|---|
-| _csp_reference | Referencia única estable firmada y correlación principal |
-| _csp_environment | Entorno de la operación |
-| _csp_amount | Snapshot decimal normalizado de monto |
-| _csp_currency | Snapshot de moneda MXN |
-| _csp_description | Descripción enviada y esperada firmada |
-| _csp_remote_order_id | ID de orden SinergyPay |
-| _csp_reference_num | Referencia numérica del proveedor, cuando viene |
-| _csp_expiration_date | Vencimiento recibido, preservado con zona horaria |
-| _csp_clabe | CLABE validada de 18 dígitos |
-| _csp_order_state | Estado de creación de orden |
-| _csp_clabe_state | Estado de generación CLABE |
-| _csp_preparation | ready cuando terminó la preparación |
-| _csp_transaction_id | Ticket firmado de confirmación |
-| _csp_confirmation_state | applying o paid |
+| _cannaland_payments_reference | Referencia única estable firmada y correlación principal |
+| _cannaland_payments_environment | Entorno de la operación |
+| _cannaland_payments_amount | Snapshot decimal normalizado de monto |
+| _cannaland_payments_currency | Snapshot de moneda MXN |
+| _cannaland_payments_description | Descripción enviada y esperada firmada |
+| _cannaland_payments_remote_order_id | ID de orden SinergyPay |
+| _cannaland_payments_reference_num | Referencia numérica del proveedor, cuando viene |
+| _cannaland_payments_expiration_date | Vencimiento recibido, preservado con zona horaria |
+| _cannaland_payments_clabe | CLABE validada de 18 dígitos |
+| _cannaland_payments_order_state | Estado de creación de orden |
+| _cannaland_payments_clabe_state | Estado de generación CLABE |
+| _cannaland_payments_preparation | ready cuando terminó la preparación |
+| _cannaland_payments_transaction_id | Ticket firmado de confirmación |
+| _cannaland_payments_confirmation_state | applying o paid |
 
 El transaction ID estándar de WooCommerce se guarda mediante payment_complete(ticket).
-Opciones auxiliares sin autoload: csp_order_lock_{id} (mutex) y csp_ticket_{SHA256(env|ticket)}
-(claim permanente de ticket). Ajustes: woocommerce_cannaland_sinergypay_settings.
+Opciones auxiliares sin autoload: cannaland_payments_order_lock_{id} (mutex) y cannaland_payments_ticket_{SHA256(env|ticket)}
+(claim permanente de ticket). Ajustes: woocommerce_cannaland_spei_settings.
 No hay consultas SQL directas a posts/postmeta, secretos en metadatos ni payloads persistidos.
 
 ## Estados y límites de recuperación
@@ -164,3 +165,13 @@ atribuida al proveedor. Incluso rejected necesita revisión para autorizar una n
 Ver OPERATIONS.md antes de cualquier intervención. La prevención de efectos duplicados es
 conservadora: ante un fallo entre hooks y escrituras, puede sacrificar confirmación automática
 para exigir conciliación. No se promete una transacción distribuida exactamente-una-vez.
+
+## Identidad y transición 0.3.0
+
+Producto: Cannaland Payments; descripción: Pasarela de pagos integrada para Cannaland.
+Namespace principal Cannaland\Payments; text domain cannaland-payments; constantes
+CANNALAND_PAYMENTS_FILE y CANNALAND_PAYMENTS_VERSION. El cliente específico del proveedor es
+SinergyPayClient. La separación es producto → gateways → servicios → proveedor.
+La firma y las URLs de SinergyPay se conservan; sus nombres son referencias técnicas intencionales.
+Las claves de errores/lookup, locks y claims usan cannaland_payments_; el formato del valor
+reference no cambia. Ver OPERATIONS.md: no hay migración automática de datos de desarrollo.

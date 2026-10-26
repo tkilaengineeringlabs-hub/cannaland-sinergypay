@@ -1,14 +1,15 @@
-# Cannaland SinergyPay
+# Cannaland Payments
 
-Plugin WooCommerce multimétodo con gateways independientes SinergyPay.
-Versión 0.2.0. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
+Pasarela de pagos integrada para Cannaland.
+SinergyPay se utiliza como proveedor de infraestructura/API para SPEI.
+Versión 0.3.0. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
 Incluye registro independiente en checkout clásico y WooCommerce Blocks; no hay selector interno.
 
 | Método | Gateway ID | Estado actual |
 |---|---|---|
-| Tarjetas | `cannaland_sinergypay_cards` | Estructura; sin procesamiento ni captura de tarjetas |
-| Transferencia SPEI | `cannaland_sinergypay` | Flujo implementado; validación sandbox real pendiente |
-| Pagos en efectivo | `cannaland_sinergypay_cash` | Estructura; sin generación de referencias o cobros |
+| Tarjeta | `cannaland_cards` | Estructura; sin procesamiento ni captura de tarjetas |
+| Transferencia SPEI | `cannaland_spei` | Flujo implementado; validación sandbox real pendiente |
+| Pago en efectivo | `cannaland_cash` | Estructura; sin generación de referencias o cobros |
 
 Los tres aparecen por separado en WooCommerce → Ajustes → Pagos, con habilitación, título y
 descripción independientes. Tarjetas y efectivo permanecen no disponibles para compradores,
@@ -19,25 +20,26 @@ No se presenta su estructura como si ya fueran métodos utilizables.
 
 ## Instalación y configuración
 
-Instala `dist/cannaland-sinergypay.zip` desde Plugins → Añadir plugin → Subir plugin.
-Activa WooCommerce y Cannaland SinergyPay. En WooCommerce → Ajustes → Pagos → Transferencia SPEI configura:
+Instala `dist/cannaland-payments.zip` desde Plugins → Añadir plugin → Subir plugin.
+Activa WooCommerce y Cannaland Payments. En WooCommerce → Ajustes → Pagos → Transferencia SPEI configura:
 
 - Habilitar/deshabilitar, título y descripción.
 - Entorno `sandbox` o `production` y su API key **privada**, mediante el administrador de WordPress.
 - `expiration_minutes`: entero positivo; predeterminado 8640.
-- Logging seguro opcional, desactivado por defecto. Fuente: `cannaland-sinergypay`.
+- Logging seguro opcional, desactivado por defecto. Fuente: `cannaland-payments`.
 - Moneda de tienda y pedido: MXN.
 
-El ID y las opciones SPEI existentes se conservan. Un título personalizado guardado no se cambia
-automáticamente; puede ajustarse desde WooCommerce.
+La versión 0.3.0 usa IDs y opciones neutrales. No reutiliza automáticamente los ajustes ni los
+pedidos de versiones de desarrollo anteriores. Revisa la transición descrita en OPERATIONS.md
+antes de reemplazar una instalación existente.
 
-La API key se guarda en `woocommerce_cannaland_sinergypay_settings`, protegida por los controles
+La API key se guarda en `woocommerce_cannaland_spei_settings`, protegida por los controles
 administrativos de WooCommerce y mostrada como password. No se cifra en la base de datos:
 protege administradores, base de datos y respaldos. No la añadas al código ni al repositorio.
 
 ## Callback que debes proporcionar a SinergyPay
 
-`POST https://TU-DOMINIO/wp-json/cannaland-sinergypay/v1/payment-notification`
+`POST https://TU-DOMINIO/wp-json/cannaland-payments/v1/payment-notification`
 
 La URL exacta de la instalación aparece en los ajustes y se genera con `rest_url()`, respetando
 subdirectorios y la configuración de enlaces permanentes (puede usar `?rest_route=...`).
@@ -61,7 +63,7 @@ queda en revisión, concilia primero con SinergyPay; no borres metadatos para pr
 Un proceso terminado abruptamente puede dejar un bloqueo persistente que requiere revisión.
 Los rechazos definitivos también requieren revisión antes de otro intento.
 
-Ver [arquitectura y metadatos](docs/SINERGYPAY-ARCHITECTURE.md) y
+Ver [arquitectura y metadatos](docs/ARCHITECTURE.md) y
 [operación, límites y pruebas sandbox](docs/OPERATIONS.md).
 El estado original del plugin de referencia permanece en `main` y el historial Git.
 No se migran órdenes ni credenciales del plugin de referencia.
@@ -86,7 +88,7 @@ Cada módulo en `modules/cards/` y `modules/cash/` tiene su gateway, servicio de
 Blocks. El registro compartido en `Methods` contiene solo metadatos locales, no contratos API.
 Los métodos guardan sus opciones en `woocommerce_<gateway_id>_settings`; no leen credenciales SPEI.
 No se añadieron clientes remotos ficticios, endpoints, formularios PAN/CVV, SDKs ni redirecciones.
-El cliente `Api` actual continúa siendo exclusivo SPEI.
+El cliente `SinergyPayClient` actual continúa siendo exclusivo SPEI.
 
 Para activar tarjetas faltan documentación/API oficial, UX permitida, tokenización o campos
 hospedados si corresponden, autenticación/notificaciones reales y definición PCI. Para efectivo
