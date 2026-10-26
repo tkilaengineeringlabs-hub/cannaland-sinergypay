@@ -4,7 +4,7 @@ error_reporting( E_ALL );
 set_error_handler( static function ( $level, $message, $file, $line ) { throw new ErrorException( $message, 0, $level, $file, $line ); } );
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'CANNALAND_PAYMENTS_FILE', ( getenv( 'CSP_PLUGIN_ROOT' ) ?: dirname( __DIR__ ) ) . '/cannaland-payments.php' );
-define( 'CANNALAND_PAYMENTS_VERSION', '0.3.2' );
+define( 'CANNALAND_PAYMENTS_VERSION', '0.3.3' );
 class WP_Error {
     private string $code; private string $message;
     public function __construct( $code, $message = '' ) { $this->code = $code; $this->message = $message; }
@@ -15,6 +15,13 @@ class WP_REST_Response { public $data; public $status; public function __constru
 function is_wp_error( $value ) { return $value instanceof WP_Error; }
 function __( $value, ...$args ) { return $value; }
 function esc_html__( $value, ...$args ) { return htmlspecialchars( $value, ENT_QUOTES, 'UTF-8' ); }
+function esc_attr( $value ) { return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' ); }
+function esc_attr__( $value, ...$args ) { return esc_attr($value); }
+function plugins_url($path,$file='') { return 'https://shop.example/plugins/cannaland-payments/'.$path; }
+function is_order_received_page() { return $GLOBALS['received_page'] ?? false; }
+function is_wc_endpoint_url($endpoint) { return ($GLOBALS['wc_endpoint'] ?? '')===$endpoint; }
+function wp_enqueue_style(...$args) { $GLOBALS['enqueued_styles'][]=$args; }
+function wp_enqueue_script(...$args) { $GLOBALS['enqueued_scripts'][]=$args; }
 function esc_html( $value ) { return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' ); }
 function wp_timezone() { return new DateTimeZone(get_option('timezone_string','UTC')); }
 function wp_date($format,$timestamp=null,$timezone=null) {

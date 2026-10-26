@@ -18,7 +18,7 @@ check('date and time formats follow WordPress options',SpeiPresentation::expirat
 check('missing and invalid expiration handled without technical ISO',SpeiPresentation::expiration('')==='' && SpeiPresentation::expiration('invalid-date')==='Fecha no disponible');
 $html=presentation_output(fn()=>SpeiPresentation::render($o));
 check('customer table shows CLABE reference formatted amount and expiration',str_contains($html,'012345678901234567') && str_contains($html,'existing-reference') && str_contains($html,'123456') && str_contains($html,'$8,700.00 MXN') && str_contains($html,'2026/11/01, 8:10 am'));
-check('theme-friendly WooCommerce table and selectable data',str_contains($html,'shop_table') && str_contains($html,'scope="row"') && str_contains($html,'user-select:all'));
+check('scoped SPEI card retains selectable real order values',str_contains($html,'data-cannaland-spei') && str_contains($html,'cannaland-payments-spei__value') && str_contains($html,'Datos para transferencia SPEI'));
 check('wc_price receives original decimal and currency',end($GLOBALS['price_calls'])===['8700.00',['currency'=>'MXN']]);
 $GLOBALS['options']['woocommerce_price_decimal_sep']=','; $GLOBALS['options']['woocommerce_price_thousand_sep']='.';
 check('amount presentation respects WooCommerce separators',str_contains(presentation_output(fn()=>SpeiPresentation::render($o)),'$8.700,00 MXN'));
@@ -65,3 +65,28 @@ unset($o->meta[Support::PREFIX.'signature'],$o->meta[Support::PREFIX.'token']); 
 check('presentation preserves old metadata status and storage without network calls',$before===[$o->meta,$o->save_count,$o->status,$o->completions] && count($GLOBALS['requests'])===0);
 SpeiPresentation::register(); SpeiPresentation::register();
 check('email and admin hooks registered only once',count($GLOBALS['actions']['woocommerce_email_order_details'])===1 && count($GLOBALS['actions']['woocommerce_email_before_order_table'])===1 && count($GLOBALS['actions']['woocommerce_admin_order_data_after_order_details'])===1);
+
+// 0.3.3 UI regression coverage. Existing 0.3.2 behavior assertions remain above.
+$html=presentation_output(fn()=>SpeiPresentation::render($o));
+check('beneficiary is centralized presentation-only Cannaland',SpeiPresentation::BENEFICIARY==='Cannaland' && str_contains($html,'data-spei-value="beneficiary">Cannaland</span>'));
+check('four individual buttons plus copy-all button',substr_count($html,'data-spei-copy=')===5 && str_contains($html,'data-spei-copy="beneficiary"') && str_contains($html,'data-spei-copy="clabe"') && str_contains($html,'data-spei-copy="reference"') && str_contains($html,'data-spei-copy="amount"') && str_contains($html,'data-spei-copy="all"'));
+check('buttons accessible keyboard controls with live feedback',substr_count($html,'type="button"')===5 && str_contains($html,'aria-label="Copiar CLABE"') && str_contains($html,'aria-live="polite"') && str_contains($html,'Copiar datos') && str_contains($html,'Copiado ✓'));
+check('copy source is visible exact reference not provider annotation',str_contains($html,'data-spei-value="reference">existing-reference</span>') && str_contains($html,'Referencia del proveedor: 123456'));
+$other=order(77); $other->meta=$o->meta; Support::put($other,'clabe','646180511460387343'); Support::put($other,'reference','csp-77-12345678-1234-4234-8234-123456789abc');
+$otherHtml=presentation_output(fn()=>SpeiPresentation::render($other));
+check('each component copies only current order visible data',str_contains($otherHtml,'data-spei-value="clabe">646180511460387343</span>') && str_contains($otherHtml,'data-spei-value="reference">csp-77-12345678-1234-4234-8234-123456789abc</span>') && !str_contains($otherHtml,'existing-reference'));
+$p->begin_email($o);$emailHtml=presentation_output(fn()=>$p->email($o,false,false,$email));$emailPlain=presentation_output(fn()=>$p->email($o,false,true,$email));
+check('email includes beneficiary and all SPEI fields',str_contains($emailHtml,'Cannaland') && str_contains($emailHtml,'012345678901234567') && str_contains($emailHtml,'existing-reference') && str_contains($emailHtml,'$8,700.00 MXN') && str_contains($emailHtml,'2026/11/01'));
+check('email contains no clipboard UI scripts or frontend attributes',!preg_match('/<script|<button|data-spei-|onclick|navigator\.clipboard/i',$emailHtml));
+check('plain email includes beneficiary and remains plain',str_contains($emailPlain,'Beneficiario: Cannaland') && !str_contains($emailPlain,'<') && !str_contains($emailPlain,'Copiar'));
+foreach(['cannaland_cards','cannaland_cash','other'] as $method) {
+ $other->method=$method;
+ check('other gateway never renders SPEI card '.$method,presentation_output(fn()=>(new Cannaland\Payments\Gateway)->instructions(77))==='');
+}
+$GLOBALS['enqueued_styles']=[];$GLOBALS['enqueued_scripts']=[];
+$p->assets();check('presentation assets not loaded on unrelated pages',!$GLOBALS['enqueued_styles'] && !$GLOBALS['enqueued_scripts']);
+$GLOBALS['received_page']=true;$p->assets();
+check('thank-you assets isolated and versioned without dependencies',$GLOBALS['enqueued_styles'][0][0]==='cannaland-payments-spei' && $GLOBALS['enqueued_scripts'][0][2]===[] && $GLOBALS['enqueued_scripts'][0][3]==='0.3.3' && $GLOBALS['enqueued_scripts'][0][4]===true);
+$GLOBALS['received_page']=false;$GLOBALS['wc_endpoint']='view-order';$p->assets();
+check('My Account view-order also receives clipboard assets',count($GLOBALS['enqueued_scripts'])===2);
+unset($GLOBALS['wc_endpoint'],$GLOBALS['received_page']);

@@ -196,10 +196,40 @@ muestra con wp_date(date_format + time_format, timestamp, wp_timezone()). La loc
 la aporta WordPress; no se fija UTC-6. El valor original permanece intacto. Para formato largo
 en español, configurar idioma español y el formato de fecha/hora deseado en Ajustes > Generales.
 wc_price aporta símbolo y separadores configurados en WooCommerce; se muestra el código MXN.
-La selección de texto permite copiar CLABE/referencia sin botones, JavaScript ni frameworks.
+En 0.3.2 la selección de texto permitía copiar CLABE/referencia sin controles adicionales.
+0.3.3 añade los controles descritos abajo, sin frameworks.
 
 Las pruebas de emails/admin son locales con dobles de WordPress/WooCommerce: falta comprobar
 la apariencia final en el tema real de Horsements, entrega SMTP y sus plantillas de correo.
 Las plantillas personalizadas deben conservar los hooks estándar de WooCommerce.
 Creación de orden, CLABE y checkout de 0.3.1: probados en Sandbox real por el cliente.
 Confirmación por webhook real: PENDIENTE. Este cambio no envía notificaciones ni marca pagos.
+
+
+## Tarjeta y portapapeles — 0.3.3
+
+Datos para transferencia SPEI presenta beneficiario Cannaland, CLABE, referencia completa,
+importe MXN y fecha localizada. La referencia del proveedor, si ya existe, se muestra aparte
+como información secundaria; Copiar referencia copia exclusivamente reference sin anotaciones.
+Beneficiario es una constante central de presentación, no una modificación del titular bancario.
+Los botones usan datos visibles (sin JSON oculto, secretos ni IDs internos) y solo actúan dentro
+de su componente. Copiar datos copia las cinco filas principales con sus etiquetas.
+
+navigator.clipboard.writeText es la primera opción. Sin soporte o si se rechaza, se intenta
+un textarea temporal readOnly con execCommand('copy'), se retira y restaura el foco. Si el
+navegador también bloquea ese fallback, se anuncia la alternativa de copiar manualmente;
+no se anuncia éxito falso. Copiado ✓ vuelve a Copiar/Copiar datos tras 2,2 segundos.
+Controles nativos type=button, aria-label específico, foco visible y región aria-live.
+Los controles están ocultos hasta que arranca JS; sin JS se mantiene el texto seleccionable.
+Los emails jamás incluyen los controles, atributos de copia ni JavaScript.
+
+El CSS se limita a .cannaland-payments-spei. Hereda colores y tipografía, usa bordes suaves,
+importe destacado y breakpoint de 600px. minmax(0,1fr), overflow-wrap:anywhere y word-break
+permiten mostrar referencia/CLABE completas. Botones con altura mínima de 44px y acción
+principal a ancho completo en móvil. No se modifican estilos globales ni el resto del pedido.
+
+Pruebas de portapapeles con dobles DOM: valores exactos por campo, copia de conjunto, aislamiento
+entre pedidos, feedback/restauración, fallback por falta de API o permisos, limpieza/foco y errores.
+No equivalen a una prueba con navegadores/clientes de correo reales. Falta revisar apariencia
+con el tema Horsements y compatibilidad del portapapeles en sus navegadores objetivo.
+No se hicieron llamadas financieras ni se añadió un evento de webhook en esta tarea.

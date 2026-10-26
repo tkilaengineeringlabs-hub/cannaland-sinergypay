@@ -1,4 +1,4 @@
-# Cannaland Payments — arquitectura multimétodo 0.3.2
+# Cannaland Payments — arquitectura multimétodo 0.3.3
 
 La arquitectura propuesta anteriormente queda implementada con las aclaraciones del usuario.
 El flujo implementado es SPEI directo; tarjeta y efectivo siguen como módulos pendientes. SinergyPay permanece como proveedor de infraestructura/API. La base anterior permanece en main/historial; no hay dependencia
@@ -191,3 +191,29 @@ No modifica estados ni genera solicitudes HTTP. No cambia el callback ni su crip
 
 El cliente confirmó con 0.3.1 el flujo hasta process_payment_success y la CLABE en Sandbox
 real de Horsements. Falta la notificación real, verificación de firma y actualización del pedido.
+
+## UX de datos bancarios 0.3.3
+
+SpeiPresentation centraliza BENEFICIARY='Cannaland' como etiqueta visual. No se guarda ni se
+transmite a SinergyPay. La tarjeta solo lee campos ya persistidos y no altera estados.
+wp_enqueue_scripts carga CSS/JS propios únicamente en pedido recibido y Mi cuenta/ver pedido.
+No hay dependencias, jQuery ni llamadas remotas. Cada botón lee un valor visible de su tarjeta;
+Copiar datos construye líneas de beneficiario, CLABE, referencia, importe y vencimiento.
+Los emails se renderizan en ramas separadas HTML/texto sin atributos de copia ni scripts.
+reference_num permanece como información secundaria y no se concatena al valor que copia
+el botón de reference. El ID remoto continúa restringido a administración.
+
+Referencia funcional (sin cambios): Preparation la genera una sola vez como csp-ID-UUID,
+la persiste y la envía en POST /orders/. La respuesta de creación puede traer reference_num,
+que es distinto del reference local. El contrato de notificación incluye reference firmado
+como parte de id|currency|amount|description|reference|date; el eco real del webhook aún está
+pendiente de prueba. Webhook exige csp-ID-UUID, busca coincidencia exacta mediante Woo CRUD y
+compara con la metadata guardada. El claim único del ticket guarda también esa referencia.
+El bloqueo por order ID y los estados de preparación evitan POST duplicados; reference es
+correlación estable, no una garantía documentada de idempotencia remota.
+
+Una referencia más corta para futuras órdenes exigiría confirmar límites/charset/eco con el
+proveedor, mantener unicidad suficiente y añadir aceptación explícita de ambos formatos al
+webhook. No puede cambiarse solo el generador: el patrón actual la rechazaría. Nunca renombrar
+referencias ya emitidas. Validar contrato/firmas/correlación en sandbox antes de adoptar un formato
+nuevo. Esta versión solo usa wrapping visual y copia el valor original completo.

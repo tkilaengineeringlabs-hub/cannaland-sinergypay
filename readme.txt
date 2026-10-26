@@ -1,7 +1,7 @@
 === Cannaland Payments ===
 Requires at least: 6.2
 Requires PHP: 8.0
-Stable tag: 0.3.2
+Stable tag: 0.3.3
 Tags: woocommerce, spei, payments
 
 Pasarela de pagos integrada para Cannaland.
@@ -32,6 +32,10 @@ Se bloquea el reintento automático y se requiere conciliación administrativa.
 No. Solo la notificación válida puede confirmar automáticamente un pago nuevo.
 
 == Changelog ==
+= 0.3.3 =
+Tarjeta SPEI responsive con beneficiario Cannaland y botones de copia accesibles sin dependencias.
+Referencia íntegra, datos reales del pedido y emails sin JavaScript. Sin cambios de pagos.
+
 = 0.3.2 =
 Presentación SPEI con fecha/zona WordPress e importe WooCommerce.
 Instrucciones en emails HTML/texto y consulta administrativa mediante CRUD, sin migración.

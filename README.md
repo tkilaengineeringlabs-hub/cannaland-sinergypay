@@ -2,7 +2,7 @@
 
 Pasarela de pagos integrada para Cannaland.
 SinergyPay se utiliza como proveedor de infraestructura/API para SPEI.
-Versión 0.3.2. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
+Versión 0.3.3. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
 Incluye registro independiente en checkout clásico y WooCommerce Blocks; no hay selector interno.
 
 | Método | Gateway ID | Estado actual |
@@ -20,7 +20,7 @@ No se presenta su estructura como si ya fueran métodos utilizables.
 
 ## Instalación y configuración
 
-Instala `dist/cannaland-payments-0.3.2.zip` desde Plugins → Añadir plugin → Subir plugin.
+Instala `dist/cannaland-payments-0.3.3.zip` desde Plugins → Añadir plugin → Subir plugin.
 Activa WooCommerce y Cannaland Payments. En WooCommerce → Ajustes → Pagos → Transferencia SPEI configura:
 
 - Habilitar/deshabilitar, título y descripción.
@@ -97,7 +97,7 @@ Sus adaptadores UI y servicios se extenderán dentro de cada módulo; SPEI no ne
 
 ## Diagnóstico SPEI
 
-La versión 0.3.2 conserva el marcador de log `diagnostics=spei-v1`.
+La versión 0.3.3 conserva el marcador de log `diagnostics=spei-v1`.
 Con Registro seguro habilitado, buscar fuente `cannaland-payments` en WooCommerce > Estado >
 Registros. El logger global debe estar activo y su umbral debe permitir Info para ver los hitos;
 los fallos se registran como Error. Ver OPERATIONS.md para eventos, campos y límites de privacidad.
@@ -116,7 +116,22 @@ Pedido recibido/Mi cuenta, emails al comprador en espera de pago (HTML y texto p
 administración reutilizan los metadatos existentes mediante CRUD. No hay migración.
 La fecha se convierte con `wp_date()`, `wp_timezone()`, `date_format` y `time_format` de WordPress;
 el ISO original se conserva. El importe usa el formato de `wc_price()` y muestra MXN.
-La CLABE y referencias son texto seleccionable, sin scripts ni dependencias adicionales.
-Los emails muestran únicamente CLABE, importe, referencia (incluida la referencia del proveedor
+La CLABE y referencias son texto seleccionable; 0.3.3 añade controles ligeros de copia sin dependencias.
+Los emails muestran únicamente beneficiario, CLABE, importe, referencia (incluida la referencia del proveedor
 si ya existe) y vencimiento; no muestran el ID remoto. El administrador sí puede consultar
 el ID remoto y los estados de preparación/confirmación. Ver OPERATIONS.md para los hooks.
+
+## UX SPEI 0.3.3
+
+Tarjeta aislada «Datos para transferencia SPEI» con Beneficiario: Cannaland (constante de
+presentación, no dato bancario enviado al proveedor), CLABE, referencia completa, importe y
+vencimiento. Copiar por campo y Copiar datos usan exclusivamente los valores visibles del pedido.
+Clipboard API, fallback local con textarea temporal y feedback accesible. Sin JS los valores
+siguen visibles y seleccionables y los controles permanecen ocultos.
+CSS del componente hereda colores/tipografía del tema; ajusta referencias largas en móvil.
+Los emails HTML/texto incluyen beneficiario y datos; no reciben scripts ni botones.
+La referencia csp-ID-UUID se conserva exactamente: participa en firma, correlación y reclamos
+únicos del pago. No se modifica la generación ni la validación del webhook.
+
+Pruebas locales: `php tests/run.php`, `php tests/bootstrap-smoke.php`,
+`node tests/blocks.test.js`, `node tests/spei-instructions.test.js`, `python3 scripts/check.py`.

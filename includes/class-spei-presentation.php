@@ -4,12 +4,15 @@ defined( 'ABSPATH' ) || exit;
 
 /** Read-only presentation of existing SPEI metadata. Never calls the provider or saves orders. */
 final class SpeiPresentation {
+    // Presentation label only: never sent to the provider or stored as bank account data.
+    public const BENEFICIARY = 'Cannaland';
     private array $email_rendered = array();
 
     public static function register(): void {
         static $instance;
         if ( $instance ) { return; }
         $instance = new self();
+        add_action( 'wp_enqueue_scripts', array( $instance, 'assets' ) );
         // A new order-details render is a new email (including legitimate resends).
         add_action( 'woocommerce_email_order_details', array( $instance, 'begin_email' ), 1, 4 );
         add_action( 'woocommerce_email_before_order_table', array( $instance, 'email' ), 10, 4 );
@@ -35,40 +38,71 @@ final class SpeiPresentation {
         $currency = (string) Support::meta( $order, 'currency' );
         $price = null === $amount ? __( 'Importe no disponible', 'cannaland-payments' ) :
             html_entity_decode( wp_strip_all_tags( wc_price( $amount, array( 'currency' => $currency ) ) ), ENT_QUOTES, 'UTF-8' ) . ' ' . $currency;
-        $reference = (string) Support::meta( $order, 'reference' );
-        if ( Support::meta( $order, 'reference_num' ) ) {
-            $reference .= ' (' . __( 'Referencia del proveedor', 'cannaland-payments' ) . ': ' . Support::meta( $order, 'reference_num' ) . ')';
-        }
         $fields = array(
+            __( 'Beneficiario', 'cannaland-payments' ) => self::BENEFICIARY,
             __( 'CLABE', 'cannaland-payments' ) => Support::meta( $order, 'clabe' ),
+            __( 'Referencia', 'cannaland-payments' ) => (string) Support::meta( $order, 'reference' ),
             __( 'Importe', 'cannaland-payments' ) => str_replace( "\xc2\xa0", ' ', $price ),
-            __( 'Referencia', 'cannaland-payments' ) => $reference,
         );
         $expiration = self::expiration( Support::meta( $order, 'expiration_date' ) );
         if ( '' !== $expiration ) { $fields[ __( 'Válida hasta', 'cannaland-payments' ) ] = $expiration; }
         return $fields;
     }
+    public function assets(): void {
+        if ( ! ( function_exists( 'is_order_received_page' ) && is_order_received_page() ) &&
+            ! ( function_exists( 'is_wc_endpoint_url' ) && is_wc_endpoint_url( 'view-order' ) ) ) { return; }
+        wp_enqueue_style( 'cannaland-payments-spei', plugins_url( 'assets/css/spei-instructions.css', CANNALAND_PAYMENTS_FILE ), array(), CANNALAND_PAYMENTS_VERSION );
+        wp_enqueue_script( 'cannaland-payments-spei', plugins_url( 'assets/js/spei-instructions.js', CANNALAND_PAYMENTS_FILE ), array(), CANNALAND_PAYMENTS_VERSION, true );
+    }
     public static function render( $order, bool $plain_text = false, bool $email = false ): void {
         $fields = self::fields( $order );
+        $provider_reference = Support::meta( $order, 'reference_num' );
         if ( $plain_text ) {
             echo "\n" . __( 'Transferencia SPEI', 'cannaland-payments' ) . "\n";
+            if ( $provider_reference ) { $fields[ __( 'Referencia del proveedor', 'cannaland-payments' ) ] = $provider_reference; }
             foreach ( $fields as $label => $value ) {
-                // Provider strings cannot inject HTML or additional lines into plain-text email.
                 echo $label . ': ' . str_replace( array( "\r", "\n" ), ' ', wp_strip_all_tags( (string) $value ) ) . "\n";
             }
             echo "\n";
             return;
         }
-        echo '<section class="woocommerce-order-details cannaland-payments-instructions"><h2>' . esc_html__( 'Transferencia SPEI', 'cannaland-payments' ) . '</h2>';
-        echo '<table class="woocommerce-table shop_table shop_table_responsive"><tbody>';
+        if ( $email ) {
+            // Email-safe markup: no scripts, clipboard controls, frontend styles or data attributes.
+            echo '<h2>' . esc_html__( 'Transferencia SPEI', 'cannaland-payments' ) . '</h2><table cellspacing="0" cellpadding="10" style="width:100%;border-collapse:collapse;text-align:left"><tbody>';
+            if ( $provider_reference ) { $fields[ __( 'Referencia del proveedor', 'cannaland-payments' ) ] = $provider_reference; }
+            foreach ( $fields as $label => $value ) {
+                echo '<tr><th scope="row" style="vertical-align:top">' . esc_html( $label ) . '</th><td style="overflow-wrap:anywhere;word-break:break-word">' . esc_html( $value ) . '</td></tr>';
+            }
+            echo '</tbody></table>';
+            return;
+        }
+        echo '<section class="cannaland-payments-spei" data-cannaland-spei aria-label="' . esc_attr__( 'Datos para transferencia SPEI', 'cannaland-payments' ) . '">';
+        echo '<header class="cannaland-payments-spei__header"><h2>' . esc_html__( 'Datos para transferencia SPEI', 'cannaland-payments' ) . '</h2><p>' . esc_html__( 'Realiza tu transferencia utilizando los siguientes datos:', 'cannaland-payments' ) . '</p></header>';
+        echo '<dl class="cannaland-payments-spei__fields">';
+        $keys = array( 'beneficiary', 'clabe', 'reference', 'amount', 'expiration' );
+        $index = 0;
         foreach ( $fields as $label => $value ) {
-            echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td><span style="user-select:all">' . esc_html( $value ) . '</span></td></tr>';
+            $key = $keys[$index++];
+            echo '<div class="cannaland-payments-spei__row cannaland-payments-spei__row--' . esc_attr( $key ) . '"><dt data-spei-label="' . esc_attr( $key ) . '">' . esc_html( $label ) . '</dt><dd>';
+            echo '<span class="cannaland-payments-spei__value" data-spei-value="' . esc_attr( $key ) . '">' . esc_html( $value ) . '</span>';
+            if ( 'reference' === $key && $provider_reference ) {
+                echo '<small class="cannaland-payments-spei__secondary">' . esc_html__( 'Referencia del proveedor', 'cannaland-payments' ) . ': ' . esc_html( $provider_reference ) . '</small>';
+            }
+            echo '</dd>';
+            if ( 'expiration' !== $key ) {
+                echo '<dd class="cannaland-payments-spei__action">';
+                self::copy_button( $key, sprintf( __( 'Copiar %s', 'cannaland-payments' ), $label ) );
+                echo '</dd>';
+            }
+            echo '</div>';
         }
-        echo '</tbody></table>';
-        if ( ! $email ) {
-            echo '<p>' . esc_html__( 'Transfiere el importe exacto. El pedido se confirmará automáticamente al recibirse la notificación válida de pago.', 'cannaland-payments' ) . '</p>';
-        }
-        echo '</section>';
+        echo '</dl><footer class="cannaland-payments-spei__footer">';
+        self::copy_button( 'all', __( 'Copiar todos los datos SPEI', 'cannaland-payments' ) );
+        echo '<span class="cannaland-payments-spei__status" role="status" aria-live="polite" aria-atomic="true"></span></footer>';
+        echo '<p class="cannaland-payments-spei__notice">' . esc_html__( 'Transfiere el importe exacto. Tu pedido se confirmará automáticamente cuando se reciba la confirmación del pago.', 'cannaland-payments' ) . '</p></section>';
+    }
+    private static function copy_button( string $key, string $label ): void {
+        echo '<button type="button" class="cannaland-payments-spei__copy" hidden data-spei-copy="' . esc_attr( $key ) . '" aria-label="' . esc_attr( $label ) . '" data-copy-label="' . esc_attr__( 'all' === $key ? 'Copiar datos' : 'Copiar', 'cannaland-payments' ) . '" data-copied-label="' . esc_attr__( 'Copiado ✓', 'cannaland-payments' ) . '" data-copy-error="' . esc_attr__( 'No se pudo copiar. Selecciona el valor y cópialo manualmente.', 'cannaland-payments' ) . '">' . esc_html__( 'all' === $key ? 'Copiar datos' : 'Copiar', 'cannaland-payments' ) . '</button>';
     }
     public function begin_email( $order, $sent_to_admin = false, $plain_text = false, $email = null ): void {
         $this->email_rendered = array();

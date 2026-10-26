@@ -17,6 +17,6 @@ for path in [root / 'cannaland-payments.php', *(root / 'includes').glob('*.php')
     assert not re.search(r'dapp|dapp-codes|/payments', content, re.I), f'Excluded runtime dependency: {path}'
     assert not re.search(r'cannaland[-_]sinergypay|Cannaland\\SinergyPay|CANNALAND_SINERGYPAY|_csp_|csp_', content), f'Legacy local identity: {path}'
 main = (root / 'cannaland-payments.php').read_text()
-for header in ['Plugin Name: Cannaland Payments', 'Description: Pasarela de pagos integrada para Cannaland.', 'Version: 0.3.2', 'Text Domain: cannaland-payments']:
+for header in ['Plugin Name: Cannaland Payments', 'Description: Pasarela de pagos integrada para Cannaland.', 'Version: 0.3.3', 'Text Domain: cannaland-payments']:
     assert header in main, header
 print('JS syntax, git diff --check, runtime dependency and neutral branding scans passed')
