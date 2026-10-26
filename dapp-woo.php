@@ -3,7 +3,7 @@
  * Plugin Name: Dapp para WooCommerce
  * Description: Pasarela de pago para WooCommerce
  * Version: 1.3.0
- * Requires PHP: 7.0
+ * Requires PHP: 8.0
  * Author: Dapp
  * Author URI: https://dapp.mx
  * Text Domain: dappwoo
@@ -141,9 +141,9 @@ if ( ! class_exists( 'DappWoo' ) ) {
 			$flag    = false;
 			$version = false;
 
-			if ( version_compare( PHP_VERSION, '7.0', '<' ) ) {
+			if ( version_compare( PHP_VERSION, '8.0', '<' ) ) {
 				$flag    = 'PHP';
-				$version = '7.0';
+				$version = '8.0';
 			} elseif ( version_compare( $wp_version, '5.4', '<' ) ) {
 				$flag    = 'WordPress';
 				$version = '5.4';
@@ -212,7 +212,7 @@ if ( ! class_exists( 'DappWoo' ) ) {
 		 * @return void
 		 */
 		public static function deactivation( $plugin ) {
-			Helper::set_option( 'api_token', '' );
+            // Deactivating this or another plugin must not destroy credentials.
 			return false;
 		}
 

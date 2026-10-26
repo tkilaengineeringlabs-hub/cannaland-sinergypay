@@ -67,15 +67,17 @@ class DappWooSdk {
 			Helper::log_error( __FUNCTION__ . ': ' . $e->getMessage() );
 			return array();
 		}
-		if ( ! empty( $this->handle_response( $res, __FUNCTION__ )['data'] ) ) {
+		if ( is_array( $res ) && ! empty( $res['data'] ) ) {
             $webHookData = $this->get_webhook_data();
-			if ( empty( $webHookData['data'] ) ) {
+			if ( is_wp_error( $webHookData ) || ! is_array( $webHookData ) ) { return false; }
+            if ( empty( $webHookData['data'] ) ) {
 				$this->post_webhook_data();
 			} else {
                 $url = get_site_url( null, '/wc-api/wc-dapp' );
                 $exist = false;
+                if ( ! is_array( $webHookData['data'] ) ) { return false; }
                 foreach($webHookData['data'] as $value){
-                    if($value['url'] == $url){
+                    if(is_array( $value ) && ( $value['url'] ?? null ) === $url){
                         $exist = true;
                         break;
                     }
@@ -87,7 +89,7 @@ class DappWooSdk {
 
 			return true;
 		}
-		Helper::set_option( 'api_token', '' );
+		// A temporary service failure must not erase the configured credential.
 		return false;
 	}
 
@@ -139,7 +141,7 @@ class DappWooSdk {
 
 		try {
 			$res = $this->api->get(
-				'/dapp-codes/' . $dapp_id,
+				'/dapp-codes/' . rawurlencode( $dapp_id ),
 				array(),
 				array(
 					'User-Agent'    => 'MiIntegracion1.0',
@@ -197,7 +199,7 @@ class DappWooSdk {
 	public function get_payment_data( $payment_id ) {
 		try {
 			$res = $this->api->get(
-				'/dapp-codes/' . $payment_id . '/payment',
+				'/dapp-codes/' . rawurlencode( $payment_id ) . '/payment',
 				array(),
 				array(
 					'User-Agent'    => 'MiIntegracion1.0',
@@ -221,7 +223,7 @@ class DappWooSdk {
 	 * @return array
 	 */
 	protected function handle_response( $response = array(), string $function_name = '' ) {
-		return $response;
+		return is_array( $response ) || is_wp_error( $response ) ? $response : new \WP_Error( 'dapp_response', 'Invalid payment service response.' );
 	}
 
 	/**

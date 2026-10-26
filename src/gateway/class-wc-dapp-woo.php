@@ -144,6 +144,7 @@ class WC_DappWoo extends \WC_Payment_Gateway {
 	public function process_refund( $order_id, $amount = null, $reason = '' ) {
 
 		$order       = wc_get_order( $order_id );
+        if ( ! $order || \DappWoo::GATEWAY_ID !== $order->get_payment_method() ) { return false; }
 		$order_total = $order->get_total();
 		$meta        = $order->get_meta( '_DAPP_INTERNAL_DEPOSIT_ID' );
 
@@ -164,6 +165,7 @@ class WC_DappWoo extends \WC_Payment_Gateway {
 			)
 		);
 
+        if ( is_wp_error( $response ) || ! is_array( $response ) ) { return new \WP_Error( 'dapp_refund', 'Refund service unavailable.' ); }
 		$cashout_id = isset( $response['data']['id'] ) ? $response['data']['id'] : '';
 
 		if ( empty( $cashout_id ) ) {

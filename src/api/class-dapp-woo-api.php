@@ -26,8 +26,8 @@ class DappWooApi extends \Conexa\DappWoo\Includes\Api\ApiConnector implements \C
 	 * @param array $settings DappWoo Settings Object.
 	 */
 	public function __construct( array $settings = array() ) {
-		$this->api_token = $settings['api_token'];
-		$this->debug     = $settings['debug'];
+		$this->api_token = is_string( $settings['api_token'] ?? null ) ? $settings['api_token'] : '';
+		$this->debug     = $settings['debug'] ?? false;
 	}
 
 	/**

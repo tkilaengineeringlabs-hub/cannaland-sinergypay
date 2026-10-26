@@ -7,7 +7,7 @@
 
 define( 'TEST_DAPP_RUNNING', true );
 define( 'ECHO_URL', 'https://www.postman-echo.com' );
-define( 'TEST_API_TOKEN', 'd777e52e-8dc6-4c57-9ac1-f6913409f0d9' );
+define( 'TEST_API_TOKEN', getenv( 'DAPP_TEST_API_TOKEN' ) ?: 'placeholder-not-a-credential' );
 
 define(
 	'TEST_DAPP_SETTINGS',

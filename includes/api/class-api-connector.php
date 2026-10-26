@@ -30,34 +30,32 @@ abstract class ApiConnector {
 		array $headers
 	) {
 
-		$args['method']  = $method;
-		$args['headers'] = $headers;
-		if ( strtoupper( $method ) === 'GET' ) {
-			$args['body'] = $body;
-		} else {
-			$args['body'] = wp_json_encode( $body, JSON_UNESCAPED_UNICODE );
-		}
-
-		$request = wp_safe_remote_request( $url, $args );
-		if ( is_wp_error( $request ) ) {
-			return false;
-		}
-
-		$response = wp_remote_retrieve_body( $request );
-		Helper::log( '==============================================>' );
-		Helper::log( $url );
-		Helper::log( $headers );
-		Helper::log( 'Request > ' );
-		Helper::log( wp_json_encode( $body, JSON_UNESCAPED_UNICODE ) );
-		Helper::log( 'Response Code > ' . $request['response']['code'] );
-		Helper::log( 'Response > ' );
-		Helper::log( $response );
-
-		if ( 200 === $request['response']['code'] ) {
-			return json_decode( $response, true );
-		} else {
-			return array( 'errors' => json_decode( $response, true ) );
-		}
+        $args = array( 'method' => $method, 'headers' => $headers, 'timeout' => 20, 'redirection' => 0 );
+        if ( 'GET' !== strtoupper( $method ) ) {
+            $args['body'] = wp_json_encode( $body, JSON_UNESCAPED_UNICODE );
+            if ( false === $args['body'] ) {
+                return new \WP_Error( 'dapp_json_request', 'Invalid request data.' );
+            }
+        }
+        $request = wp_safe_remote_request( $url, $args );
+        if ( is_wp_error( $request ) ) {
+            Helper::log( 'API network failure.' );
+            return new \WP_Error( 'dapp_network', 'Payment service unavailable.' );
+        }
+        $status = (int) wp_remote_retrieve_response_code( $request );
+        Helper::log( 'API HTTP status: ' . $status );
+        if ( $status < 200 || $status >= 300 ) {
+            return new \WP_Error( 'dapp_http', 'Unexpected payment service HTTP status.', array( 'status' => $status ) );
+        }
+        $raw = wp_remote_retrieve_body( $request );
+        if ( 204 === $status && '' === $raw ) {
+            return array();
+        }
+        $response = json_decode( $raw, true );
+        if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $response ) ) {
+            return new \WP_Error( 'dapp_json_response', 'Invalid payment service response.' );
+        }
+        return $response;
 
 	}
 

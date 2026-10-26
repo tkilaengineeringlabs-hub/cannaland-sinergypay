@@ -49,57 +49,16 @@ trait LoggerTrait {
 	 * @param mixed $msg Message.
 	 * @return void
 	 */
-	public static function log_info( $msg ) {
-		self::$logger->info(
-			wc_print_r( $msg, true ),
-			array(
-				'source' => self::$source,
-			)
-		);
-	}
+    public static function log_info( $msg ) { self::write_log( 'info', $msg ); }
+    public static function log_error( $msg ) { self::write_log( 'error', $msg ); }
+    public static function log_warning( $msg ) { self::write_log( 'warning', $msg ); }
+    public static function log_debug( $msg ) { self::write_log( 'debug', $msg ); }
 
-	/**
-	 * Logs an error message
-	 *
-	 * @param mixed $msg Message.
-	 * @return void
-	 */
-	public static function log_error( $msg ) {
-		self::$logger->error(
-			wc_print_r( $msg, true ),
-			array(
-				'source' => self::$source,
-			)
-		);
-	}
-
-	/**
-	 * Logs an warning message
-	 *
-	 * @param mixed $msg Message.
-	 * @return void
-	 */
-	public static function log_warning( $msg ) {
-		self::$logger->warning(
-			wc_print_r( $msg, true ),
-			array(
-				'source' => self::$source,
-			)
-		);
-	}
-
-	/**
-	 * Logs a debug message
-	 *
-	 * @param mixed $msg Message.
-	 * @return void
-	 */
-	public static function log_debug( $msg ) {
-		self::$logger->debug(
-			wc_print_r( $msg, true ),
-			array(
-				'source' => self::$source,
-			)
-		);
-	}
+    private static function write_log( $level, $msg ) {
+        if ( 'yes' !== self::get_option( 'debug', 'no' ) ) { return; }
+        // Only fixed diagnostic events are allowed, never caller/API content.
+        if ( ! is_string( $msg ) || ! preg_match( '/^(API network failure\.|API HTTP status: [0-9]{3}|Webhook received|Payment confirmation blocked: API contract unverified\.)$/D', $msg ) ) { return; }
+        $logger = self::init();
+        if ( $logger ) { $logger->log( $level, $msg, array( 'source' => self::$source ) ); }
+    }
 }
