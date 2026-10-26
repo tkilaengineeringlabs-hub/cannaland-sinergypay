@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Cannaland SinergyPay
- * Description: Cobros SPEI con CLABE y notificación firmada de SinergyPay para WooCommerce.
- * Version: 0.1.0
+ * Description: Métodos independientes SinergyPay para WooCommerce: SPEI implementado; tarjetas y efectivo en preparación.
+ * Version: 0.2.0
  * Requires at least: 6.2
  * Requires PHP: 8.0
  * Requires Plugins: woocommerce
@@ -11,8 +11,9 @@
  */
 defined( 'ABSPATH' ) || exit;
 define( 'CANNALAND_SINERGYPAY_FILE', __FILE__ );
-define( 'CANNALAND_SINERGYPAY_VERSION', '0.1.0' );
+define( 'CANNALAND_SINERGYPAY_VERSION', '0.2.0' );
 require_once __DIR__ . '/includes/class-support.php';
+require_once __DIR__ . '/includes/class-methods.php';
 require_once __DIR__ . '/includes/class-api.php';
 require_once __DIR__ . '/includes/class-preparation.php';
 require_once __DIR__ . '/includes/class-notification.php';
@@ -32,8 +33,13 @@ add_action( 'plugins_loaded', static function () {
         return;
     }
     require_once __DIR__ . '/includes/class-gateway.php';
+    require_once __DIR__ . '/includes/class-pending-gateway.php';
+    foreach ( array( 'cards', 'cash' ) as $module ) {
+        require_once __DIR__ . '/modules/' . $module . '/class-payment-service.php';
+        require_once __DIR__ . '/modules/' . $module . '/class-gateway.php';
+    }
     add_filter( 'woocommerce_payment_gateways', static function ( $gateways ) {
-        $gateways[] = \Cannaland\SinergyPay\Gateway::class;
+        foreach ( \Cannaland\SinergyPay\Methods::all() as $method ) { $gateways[] = $method['gateway']; }
         return $gateways;
     } );
     add_action( 'rest_api_init', static function () {
@@ -44,7 +50,9 @@ add_action( 'woocommerce_blocks_loaded', static function () {
     if ( class_exists( '\Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType' ) ) {
         require_once __DIR__ . '/includes/class-blocks.php';
         add_action( 'woocommerce_blocks_payment_method_type_registration', static function ( $registry ) {
-            $registry->register( new \Cannaland\SinergyPay\Blocks() );
+            foreach ( array_keys( \Cannaland\SinergyPay\Methods::all() ) as $id ) {
+                $registry->register( new \Cannaland\SinergyPay\Blocks( $id ) );
+            }
         } );
     }
 } );

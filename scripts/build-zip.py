@@ -8,9 +8,11 @@ root = Path(__file__).resolve().parents[1]
 files = [root / 'cannaland-sinergypay.php', root / 'README.md', root / 'readme.txt']
 files += [root / 'docs/SINERGYPAY-ARCHITECTURE.md', root / 'docs/OPERATIONS.md']
 files += sorted((root / 'includes').glob('class-*.php'))
+files += sorted((root / 'modules').rglob('*.php'))
+files += sorted((root / 'modules').rglob('*.js'))
 files += [root / 'assets/js/blocks.js', root / 'resources/keys/README.md']
 files += sorted((root / 'resources/keys').glob('sinergy_public_*.pem'))
-assert len(files) == 16, 'Review package manifest after adding runtime files'
+assert len(files) == 24, 'Review package manifest after adding runtime files'
 out = root / 'dist/cannaland-sinergypay.zip'
 out.parent.mkdir(exist_ok=True)
 with zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:

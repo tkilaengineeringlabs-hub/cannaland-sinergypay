@@ -9,10 +9,10 @@ php = sorted(root.rglob('*.php'))
 for path in php:
     subprocess.run(['php', '-l', str(path)], check=True, capture_output=True)
 print(f'PHP lint: {len(php)} files passed')
-for path in sorted((root / 'assets').rglob('*.js')):
+for path in sorted([*(root / 'assets').rglob('*.js'), *(root / 'modules').rglob('*.js')]):
     subprocess.run(['node', '--check', str(path)], check=True)
 subprocess.run(['git', 'diff', '--check'], cwd=root, check=True)
-for path in [root / 'cannaland-sinergypay.php', *(root / 'includes').glob('*.php'), *(root / 'assets').rglob('*.js')]:
+for path in [root / 'cannaland-sinergypay.php', *(root / 'includes').glob('*.php'), *(root / 'assets').rglob('*.js'), *(root / 'modules').rglob('*.php'), *(root / 'modules').rglob('*.js')]:
     content = path.read_text()
     assert not re.search(r'dapp|dapp-codes|/payments', content, re.I), f'Excluded runtime dependency: {path}'
 print('JS syntax, git diff --check and runtime dependency scan passed')

@@ -7,12 +7,12 @@ final class Gateway extends \WC_Payment_Gateway {
         $this->id = Support::GATEWAY;
         $this->has_fields = false;
         $this->supports = array( 'products' );
-        $this->method_title = 'Cannaland SinergyPay';
+        $this->method_title = __( 'Transferencia SPEI', 'cannaland-sinergypay' );
         $this->method_description = __( 'Transferencias SPEI a una CLABE generada por SinergyPay. La confirmación se recibe por notificación firmada.', 'cannaland-sinergypay' );
         $this->init_form_fields();
         $this->init_settings();
         $this->enabled = $this->get_option( 'enabled', 'no' );
-        $this->title = $this->get_option( 'title', 'Cannaland SinergyPay' );
+        $this->title = $this->get_option( 'title', __( 'Transferencia SPEI', 'cannaland-sinergypay' ) );
         $this->description = $this->get_option( 'description', __( 'Paga por transferencia SPEI. Recibirás una CLABE para este pedido.', 'cannaland-sinergypay' ) );
         add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
         add_action( 'woocommerce_thankyou_' . $this->id, array( $this, 'instructions' ) );
@@ -20,8 +20,8 @@ final class Gateway extends \WC_Payment_Gateway {
     }
     public function init_form_fields() {
         $this->form_fields = array(
-            'enabled' => array( 'title' => __( 'Activar', 'cannaland-sinergypay' ), 'type' => 'checkbox', 'label' => __( 'Habilitar Cannaland SinergyPay', 'cannaland-sinergypay' ), 'default' => 'no' ),
-            'title' => array( 'title' => __( 'Título', 'cannaland-sinergypay' ), 'type' => 'text', 'default' => 'Cannaland SinergyPay' ),
+            'enabled' => array( 'title' => __( 'Activar', 'cannaland-sinergypay' ), 'type' => 'checkbox', 'label' => __( 'Habilitar transferencia SPEI', 'cannaland-sinergypay' ), 'default' => 'no' ),
+            'title' => array( 'title' => __( 'Título', 'cannaland-sinergypay' ), 'type' => 'text', 'default' => __( 'Transferencia SPEI', 'cannaland-sinergypay' ) ),
             'description' => array( 'title' => __( 'Descripción', 'cannaland-sinergypay' ), 'type' => 'textarea', 'default' => __( 'Paga por transferencia SPEI. Recibirás una CLABE para este pedido.', 'cannaland-sinergypay' ) ),
             'environment' => array( 'title' => __( 'Entorno', 'cannaland-sinergypay' ), 'type' => 'select', 'options' => array( 'sandbox' => 'Sandbox', 'production' => 'Producción' ), 'default' => 'sandbox' ),
             'api_key' => array( 'title' => 'API key privada', 'type' => 'password', 'default' => '', 'description' => __( 'Usa la llave del entorno seleccionado. Se guarda en la configuración de WordPress; no se registra en logs.', 'cannaland-sinergypay' ) ),

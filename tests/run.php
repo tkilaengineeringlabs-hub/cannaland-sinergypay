@@ -4,7 +4,7 @@ error_reporting( E_ALL );
 set_error_handler( static function ( $level, $message, $file, $line ) { throw new ErrorException( $message, 0, $level, $file, $line ); } );
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'CANNALAND_SINERGYPAY_FILE', dirname( __DIR__ ) . '/cannaland-sinergypay.php' );
-define( 'CANNALAND_SINERGYPAY_VERSION', '0.1.0' );
+define( 'CANNALAND_SINERGYPAY_VERSION', '0.2.0' );
 class WP_Error {
     private string $code; private string $message;
     public function __construct( $code, $message = '' ) { $this->code = $code; $this->message = $message; }
@@ -277,4 +277,37 @@ foreach(['sb','prod'] as $env) {
     $key=file_get_contents(dirname(__DIR__).'/resources/keys/sinergy_public_'.$env.'.pem');
     check('bundled official RSA key loads '.$env,openssl_pkey_get_details(openssl_pkey_get_public($key))['type']===OPENSSL_KEYTYPE_RSA);
 }
+require dirname(__DIR__).'/includes/class-methods.php';
+require dirname(__DIR__).'/includes/class-pending-gateway.php';
+foreach(['cards','cash'] as $module) {
+    require dirname(__DIR__).'/modules/'.$module.'/class-payment-service.php';
+    require dirname(__DIR__).'/modules/'.$module.'/class-gateway.php';
+}
+reset_state(); $o=ready();
+$GLOBALS['options']['woocommerce_cannaland_sinergypay_cards_settings']=['enabled'=>'yes','title'=>'Tarjetas Cannaland','description'=>'Card module only'];
+$GLOBALS['options']['woocommerce_cannaland_sinergypay_cash_settings']=['enabled'=>'yes','title'=>'Efectivo Cannaland','description'=>'Cash module only'];
+$cards=new Cannaland\SinergyPay\Cards\Gateway;
+$cash=new Cannaland\SinergyPay\Cash\Gateway;
+$spei=new Gateway;
+check('three unique independent gateway IDs',count(array_unique([$cards->id,$spei->id,$cash->id]))===3);
+check('SPEI settings and ID preserved',$spei->id===Support::GATEWAY && $spei->is_available());
+check('SPEI default checkout label explicit',$spei->title==='Transferencia SPEI');
+check('cards independent stored settings',$cards->enabled==='yes' && $cards->title==='Tarjetas Cannaland');
+check('cash independent stored settings',$cash->enabled==='yes' && $cash->title==='Efectivo Cannaland');
+check('pending gateways not offered even if enabled',!$cards->is_available() && !$cash->is_available());
+check('admin states pending integration',str_contains($cards->method_description,'pendiente') && str_contains($cash->method_description,'pendiente'));
+check('no card capture fields or secret configuration guessed',!$cards->has_fields && !isset($cards->form_fields['api_key']) && !isset($cards->form_fields['card_number']));
+foreach([$cards,$cash] as $pending) {
+    check('independent enable title description fields',isset($pending->form_fields['enabled'],$pending->form_fields['title'],$pending->form_fields['description']));
+    check('independent admin save hook',isset($GLOBALS['actions']['woocommerce_update_options_payment_gateways_'.$pending->id]));
+    $before=count($GLOBALS['requests']); $snapshot=[$o->meta,$o->status,$o->notes,$o->completions];
+    check('pending gateway refuses direct checkout',$pending->process_payment(1)===['result'=>'failure']);
+    check('pending service does not call API or touch SPEI order',count($GLOBALS['requests'])===$before && $snapshot===[$o->meta,$o->status,$o->notes,$o->completions]);
+    check('pending gateway field validation fails closed',$pending->validate_fields()===false);
+}
+$GLOBALS['options']['woocommerce_cannaland_sinergypay_cards_settings']['enabled']='no';
+check('cards toggle independent of cash',(new Cannaland\SinergyPay\Cards\Gateway)->enabled==='no' && (new Cannaland\SinergyPay\Cash\Gateway)->enabled==='yes' && (new Gateway)->is_available());
+$GLOBALS['options'][Support::OPTION]['enabled']='no';
+check('SPEI toggle independent of cash',!(new Gateway)->is_available() && (new Cannaland\SinergyPay\Cash\Gateway)->enabled==='yes');
+check('provider client intentionally absent for pending modules',!class_exists('Cannaland\\SinergyPay\\Cards\\Api') && !class_exists('Cannaland\\SinergyPay\\Cash\\Api'));
 echo "$count assertions passed. Synthetic fixtures and WooCommerce doubles; no live financial API.\n";
