@@ -103,3 +103,64 @@ No activar ambas versiones del producto sobre las mismas operaciones pendientes.
 El valor opaco reference conserva su formato existente csp-ID-UUID: se transmite y firma como
 dato del proveedor. Solo cambia el nombre local de su metadato. Las llaves públicas oficiales,
 campos de payload, rutas remotas y procedimiento criptográfico no se renombraron.
+
+## Diagnóstico SPEI seguro — build spei-v1
+
+En Transferencia SPEI, habilitar Registro seguro y guardar. En WooCommerce > Estado > Registros,
+filtrar por la fuente EXACTA `cannaland-payments`. La configuración general del logger de
+WooCommerce también debe estar habilitada; para ver los avances usar umbral Info o sin umbral.
+Un umbral Error muestra fallos pero no hitos Info; un umbral más alto puede ocultar también errores.
+No se modifica automáticamente la configuración global ni se fuerza la escritura en archivos ajenos.
+Referencia oficial: https://developer.woocommerce.com/docs/best-practices/data-management/logging/
+
+Un intento nuevo completo produce, en orden:
+
+1. process_payment_started
+2. reference_prepared
+3. create_order_request
+4. create_order_response
+5. remote_order_saved
+6. create_clabe_request
+7. create_clabe_response
+8. clabe_saved
+9. order_on_hold
+10. process_payment_success
+
+La página de instrucciones agrega instructions_started e instructions_displayed (o instructions_skipped).
+Una preparación reutilizada agrega preparation_reused y NO vuelve a generar orden/CLABE.
+Los eventos *_saved significan que regresó la llamada CRUD sin excepción, no certifican por sí
+solos el almacenamiento externo ni la interoperabilidad sandbox.
+
+Los fallos generan preparation_failed, preparation_exception, process_payment_failed o
+process_payment_exception (o instructions_exception en presentación); las respuestas HTTP fallidas también usan nivel Error. Buscar el
+order_id y leer el PRIMER fallo específico; process_payment_failed es el resumen final.
+El campo diagnostics=spei-v1 distingue este ZIP de una instalación anterior con la misma versión.
+
+Campos seguros: stage, order_id, endpoint lógico (sin ID remoto), http_status cuando existe,
+wp_error_code conocido, rc numérico acotado, response_type, claves conocidas de respuesta,
+tipos de campos, reason, result, certainty y stored_state cuando corresponda.
+No se registran valores de referencia, CLABE, montos, datos de clientes, headers ni cuerpos.
+Mensajes del proveedor y códigos externos desconocidos se omiten; solo se permiten mensajes
+literales conocidos. De WP_Error se conserva un código conocido y número cURL, no su texto libre.
+Los Throwable conservan clase y una categoría de mensaje segura; textos arbitrarios, SQL, rutas
+anónimas o secretos en excepciones se omiten. El logger nunca recibe payload/objeto de excepción
+completo ni backtrace. Si el logger falla, no se altera el flujo ni se repite una operación financiera.
+
+result: success/local_error/rejected/ambiguous/blocked/reused/in_progress/not_sent.
+certainty distingue confirmed, definitive_local, definitive_rejection, ambiguous y not_attempted.
+Un 5xx, timeout o estructura inesperada continúa siendo ambiguo; el diagnóstico no cambia esa regla.
+
+Ejemplos LOCALES sintéticos (no evidencia de Horsements):
+- order_response_validation + amount_type_invalid y field_types.amount=integer/double:
+  respuesta rechazada por la validación existente que exige amount textual. No se relajó el contrato.
+- clabe_response_validation + invalid_clabe_length/type/characters: CLABE inválida, sin mostrar su valor.
+- order_state_validation/clabe_state_validation + phase_blocked: operación previa requiere revisión.
+- remote_order_persistence/clabe_persistence + preparation_exception: fallo de la llamada CRUD.
+- redirect + process_payment_exception: el fallo ocurrió después de preparar el pago, al producir el retorno.
+
+El código anterior solo registraba cuatro eventos genéricos de nivel Info; devoluciones tempranas y
+validaciones de respuesta eran silenciosas. Eso es una deficiencia de observabilidad demostrada,
+no una prueba de la causa del fallo observado en Horsements. Hace falta una nueva prueba sandbox
+controlada, tras instalar el ZIP, y sus entradas de log. Un pedido ambiguo debe conciliarse: no borrar
+sus estados ni sus identificadores para forzar un POST. Este build no recupera respuestas históricas.
+No se hicieron llamadas financieras reales durante este cambio.

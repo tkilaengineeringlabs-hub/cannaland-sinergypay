@@ -94,3 +94,12 @@ Para activar tarjetas faltan documentación/API oficial, UX permitida, tokenizac
 hospedados si corresponden, autenticación/notificaciones reales y definición PCI. Para efectivo
 faltan documentación/API, emisión y presentación de comprobantes/referencias y confirmación.
 Sus adaptadores UI y servicios se extenderán dentro de cada módulo; SPEI no necesita cambiar.
+
+## Diagnóstico SPEI
+
+El ZIP de diagnóstico mantiene la versión 0.3.0 y agrega el marcador de log `diagnostics=spei-v1`.
+Con Registro seguro habilitado, buscar fuente `cannaland-payments` en WooCommerce > Estado >
+Registros. El logger global debe estar activo y su umbral debe permitir Info para ver los hitos;
+los fallos se registran como Error. Ver OPERATIONS.md para eventos, campos y límites de privacidad.
+Las trazas no incluyen cuerpos, encabezados, CLABE, API keys ni textos externos arbitrarios.
+No representan una prueba real exitosa de sandbox ni autorizan reintentar un POST ambiguo.
