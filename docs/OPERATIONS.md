@@ -165,7 +165,41 @@ Ejemplos de errores aún rechazados:
 
 El código anterior solo registraba cuatro eventos genéricos de nivel Info; devoluciones tempranas y
 validaciones de respuesta eran silenciosas. Eso es una deficiencia de observabilidad demostrada,
-separada del bug de tipo de importe confirmado por la evidencia de Horsements. Hace falta una nueva prueba sandbox
-controlada, tras instalar el ZIP, y sus entradas de log. Un pedido ambiguo debe conciliarse: no borrar
+separada del bug de tipo de importe confirmado por la evidencia de Horsements. El cliente confirmó posteriormente con 0.3.1 el éxito real de creación de orden, CLABE
+y checkout hasta process_payment_success. El webhook real aún requiere validación. Un pedido ambiguo debe conciliarse: no borrar
 sus estados ni sus identificadores para forzar un POST. Este build no recupera respuestas históricas.
 No se hicieron llamadas financieras reales durante este cambio.
+
+
+## Presentación de pedidos y emails — 0.3.2
+
+- Hooks existentes: woocommerce_thankyou_cannaland_spei y woocommerce_view_order.
+  Solo cambia su presentación; se conservan los guardas y eventos de diagnóstico.
+- woocommerce_email_before_order_table (4 argumentos): único punto de inserción en emails
+  HTML/texto plano del comprador; excluye emails administrativos, otros gateways, pedidos
+  pagados/cancelados/fallidos y preparaciones incompletas. Solo hay instrucciones cuando
+  preparation=ready, CLABE válida y estado pending/on-hold.
+- woocommerce_email_order_details (prioridad 1): inicia el ámbito de un render de email.
+  Una clave por objeto email, pedido y formato evita duplicar instrucciones dentro de ese
+  render. Un nuevo render permite el reenvío legítimo y multipart HTML/texto independiente.
+- woocommerce_admin_order_data_after_order_details: consulta de solo lectura con capability
+  edit_shop_order para ese pedido; funciona con el objeto WC_Order tanto en HPOS como clásico.
+
+Se leen _cannaland_payments_preparation, order_state, clabe_state, confirmation_state,
+clabe, amount, currency, reference, reference_num, remote_order_id y expiration_date
+(todas con el mismo prefijo _cannaland_payments_). No se escriben ni migran datos.
+El ID remoto solo aparece en administración. Las referencias existentes se conservan, sin
+cambiar cuál se envía a SinergyPay ni cuál se firma. No se añaden datos sensibles.
+
+expiration_date ISO (incluidos microsegundos y offset) se interpreta como un instante y se
+muestra con wp_date(date_format + time_format, timestamp, wp_timezone()). La localización
+la aporta WordPress; no se fija UTC-6. El valor original permanece intacto. Para formato largo
+en español, configurar idioma español y el formato de fecha/hora deseado en Ajustes > Generales.
+wc_price aporta símbolo y separadores configurados en WooCommerce; se muestra el código MXN.
+La selección de texto permite copiar CLABE/referencia sin botones, JavaScript ni frameworks.
+
+Las pruebas de emails/admin son locales con dobles de WordPress/WooCommerce: falta comprobar
+la apariencia final en el tema real de Horsements, entrega SMTP y sus plantillas de correo.
+Las plantillas personalizadas deben conservar los hooks estándar de WooCommerce.
+Creación de orden, CLABE y checkout de 0.3.1: probados en Sandbox real por el cliente.
+Confirmación por webhook real: PENDIENTE. Este cambio no envía notificaciones ni marca pagos.

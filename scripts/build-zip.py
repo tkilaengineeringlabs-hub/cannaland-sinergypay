@@ -13,7 +13,7 @@ files += sorted((root / 'modules').rglob('*.php'))
 files += sorted((root / 'modules').rglob('*.js'))
 files += [root / 'assets/js/blocks.js', root / 'resources/keys/README.md']
 files += sorted((root / 'resources/keys').glob('sinergy_public_*.pem'))
-assert len(files) == 25, 'Review package manifest after adding runtime files'
+assert len(files) == 26, 'Review package manifest after adding runtime files'
 main = (root / 'cannaland-payments.php').read_text()
 version = re.search(r' \* Version: ([0-9]+\.[0-9]+\.[0-9]+)', main).group(1)
 assert f"define( 'CANNALAND_PAYMENTS_VERSION', '{version}' );" in main

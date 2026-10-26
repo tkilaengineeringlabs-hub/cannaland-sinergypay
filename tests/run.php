@@ -4,7 +4,7 @@ error_reporting( E_ALL );
 set_error_handler( static function ( $level, $message, $file, $line ) { throw new ErrorException( $message, 0, $level, $file, $line ); } );
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'CANNALAND_PAYMENTS_FILE', ( getenv( 'CSP_PLUGIN_ROOT' ) ?: dirname( __DIR__ ) ) . '/cannaland-payments.php' );
-define( 'CANNALAND_PAYMENTS_VERSION', '0.3.1' );
+define( 'CANNALAND_PAYMENTS_VERSION', '0.3.2' );
 class WP_Error {
     private string $code; private string $message;
     public function __construct( $code, $message = '' ) { $this->code = $code; $this->message = $message; }
@@ -16,6 +16,17 @@ function is_wp_error( $value ) { return $value instanceof WP_Error; }
 function __( $value, ...$args ) { return $value; }
 function esc_html__( $value, ...$args ) { return htmlspecialchars( $value, ENT_QUOTES, 'UTF-8' ); }
 function esc_html( $value ) { return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' ); }
+function wp_timezone() { return new DateTimeZone(get_option('timezone_string','UTC')); }
+function wp_date($format,$timestamp=null,$timezone=null) {
+    $GLOBALS['date_calls'][]=[$format,$timestamp,($timezone ?: wp_timezone())->getName()];
+    return (new DateTimeImmutable('@'.$timestamp))->setTimezone($timezone ?: wp_timezone())->format($format);
+}
+function wc_price($amount,$args=[]) {
+    $GLOBALS['price_calls'][]=[$amount,$args];
+    return '<span class="woocommerce-Price-amount">$'.number_format((float)$amount,2,get_option('woocommerce_price_decimal_sep','.'),get_option('woocommerce_price_thousand_sep',',')).'</span>';
+}
+function wp_strip_all_tags($text) { return strip_tags($text); }
+function current_user_can($capability,...$args) { return $GLOBALS['can_edit_order'] ?? true; }
 function wp_json_encode( $value ) { return json_encode( $value ); }
 function get_option( $key, $default = false ) { return $GLOBALS['options'][$key] ?? $default; }
 function add_option( $key, $value, ...$args ) {
@@ -94,7 +105,7 @@ class Order {
         $this->transaction=$ticket; $this->status='processing';
     }
 }
-foreach(['support','diagnostics','sinergypay-client','preparation','notification','webhook','gateway'] as $class) { require dirname(CANNALAND_PAYMENTS_FILE).'/includes/class-'.$class.'.php'; }
+foreach(['support','diagnostics','spei-presentation','sinergypay-client','preparation','notification','webhook','gateway'] as $class) { require dirname(CANNALAND_PAYMENTS_FILE).'/includes/class-'.$class.'.php'; }
 use Cannaland\Payments\Support;
 use Cannaland\Payments\SinergyPayClient;
 use Cannaland\Payments\Preparation;
@@ -106,7 +117,7 @@ use Cannaland\Payments\Gateway;
 $count=0;
 function check($name,$condition) { global $count; if(!$condition) throw new Exception('FAIL: '.$name); ++$count; echo "PASS: $name\n"; }
 function reset_state() {
-    $GLOBALS['options']=[Support::OPTION=>['enabled'=>'yes','environment'=>'sandbox','api_key'=>'synthetic-test-only','expiration_minutes'=>'8640']];
+    $GLOBALS['options']=[Support::OPTION=>['enabled'=>'yes','environment'=>'sandbox','api_key'=>'synthetic-test-only','expiration_minutes'=>'8640'],'date_format'=>'Y-m-d','time_format'=>'H:i'];
     $GLOBALS['orders']=[]; $GLOBALS['responses']=[]; $GLOBALS['requests']=[]; $GLOBALS['lookups']=0; $GLOBALS['uuid']=0;
     $GLOBALS['filters']=[]; $GLOBALS['actions']=[]; $GLOBALS['logger']=new TestLogger; $GLOBALS['currency']='MXN';
     $GLOBALS['wc']=(object)['cart'=>new class { function empty_cart() { $GLOBALS['emptied']=true; } }];
@@ -241,7 +252,7 @@ $GLOBALS['currency']='USD'; check('gateway not offered for USD',!$g->is_availabl
 reset_state(); $o=order(); queue_success(); $g=new Gateway; $result=$g->process_payment(1);
 check('gateway checkout returns success without paying',$result['result']==='success' && $o->status==='on-hold' && $o->completions===0);
 ob_start(); $g->instructions(1); $html=ob_get_clean();
-check('instructions show CLABE exact amount reference expiry',str_contains($html,'012345678901234567') && str_contains($html,'10.00 MXN') && str_contains($html,Support::meta($o,'reference')) && str_contains($html,'2030-01-01'));
+check('instructions show CLABE exact amount reference expiry',str_contains($html,'012345678901234567') && str_contains(wp_strip_all_tags($html),'$10.00 MXN') && str_contains($html,Support::meta($o,'reference')) && str_contains($html,'2030-01-01'));
 Support::put($o,'reference_num','<script>alert(1)</script>'); ob_start(); $g->instructions(1); $html=ob_get_clean();
 check('instructions escape provider content',!str_contains($html,'<script>') && str_contains($html,'&lt;script&gt;'));
 check('decimal comparisons exact',Support::money('10.0')===Support::money('10.00') && Support::money('10.001')===null && Support::money('1e1')===null);
@@ -327,4 +338,5 @@ foreach([$cards,$cash] as $pending) {
 }
 check('neutral persistent order lock',Support::lock(99) && array_key_exists('cannaland_payments_order_lock_99',$GLOBALS['options'])); Support::unlock(99);
 require __DIR__.'/diagnostics.php';
+require __DIR__.'/presentation.php';
 echo "$count assertions passed. Synthetic fixtures and WooCommerce doubles; no live financial API.\n";

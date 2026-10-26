@@ -62,6 +62,9 @@ foreach(Cannaland\Payments\Methods::all() as $id=>$definition){
  $instances[$id]=$instance;
  if(!isset($GLOBALS['actions']['woocommerce_update_options_payment_gateways_'.$id])){throw new Exception('Missing independent settings hook');}
 }
+foreach(['woocommerce_email_order_details','woocommerce_email_before_order_table','woocommerce_admin_order_data_after_order_details'] as $hook) {
+ if(count($GLOBALS['actions'][$hook] ?? [])!==1){throw new Exception('Presentation hooks must be registered once independently of gateways');}
+}
 $GLOBALS['wc']=new class($instances){
  private $gateways;
  function __construct($gateways){$this->gateways=$gateways;}

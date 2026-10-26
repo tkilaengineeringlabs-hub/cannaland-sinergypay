@@ -2,13 +2,13 @@
 
 Pasarela de pagos integrada para Cannaland.
 SinergyPay se utiliza como proveedor de infraestructura/API para SPEI.
-Versión 0.3.1. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
+Versión 0.3.2. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
 Incluye registro independiente en checkout clásico y WooCommerce Blocks; no hay selector interno.
 
 | Método | Gateway ID | Estado actual |
 |---|---|---|
 | Tarjeta | `cannaland_cards` | Estructura; sin procesamiento ni captura de tarjetas |
-| Transferencia SPEI | `cannaland_spei` | Flujo implementado; validación sandbox real pendiente |
+| Transferencia SPEI | `cannaland_spei` | Creación, CLABE y checkout probados en sandbox; webhook real pendiente |
 | Pago en efectivo | `cannaland_cash` | Estructura; sin generación de referencias o cobros |
 
 Los tres aparecen por separado en WooCommerce → Ajustes → Pagos, con habilitación, título y
@@ -20,7 +20,7 @@ No se presenta su estructura como si ya fueran métodos utilizables.
 
 ## Instalación y configuración
 
-Instala `dist/cannaland-payments-0.3.1.zip` desde Plugins → Añadir plugin → Subir plugin.
+Instala `dist/cannaland-payments-0.3.2.zip` desde Plugins → Añadir plugin → Subir plugin.
 Activa WooCommerce y Cannaland Payments. En WooCommerce → Ajustes → Pagos → Transferencia SPEI configura:
 
 - Habilitar/deshabilitar, título y descripción.
@@ -97,7 +97,7 @@ Sus adaptadores UI y servicios se extenderán dentro de cada módulo; SPEI no ne
 
 ## Diagnóstico SPEI
 
-La versión 0.3.1 conserva el marcador de log `diagnostics=spei-v1`.
+La versión 0.3.2 conserva el marcador de log `diagnostics=spei-v1`.
 Con Registro seguro habilitado, buscar fuente `cannaland-payments` en WooCommerce > Estado >
 Registros. El logger global debe estar activo y su umbral debe permitir Info para ver los hitos;
 los fallos se registran como Error. Ver OPERATIONS.md para eventos, campos y límites de privacidad.
@@ -107,4 +107,16 @@ No representan una prueba real exitosa de sandbox ni autorizan reintentar un POS
 La corrección 0.3.1 acepta `data.amount` como entero, decimal JSON finito con precisión de centavos
 o cadena decimal válida en la respuesta de creación. No exige CLABE en `/orders/`.
 Los pedidos históricos ambiguos siguen requiriendo conciliación; no se reintentan automáticamente.
-Pendiente una nueva prueba sandbox real que complete la generación de CLABE y la preparación.
+El cliente confirmó en Horsements con 0.3.1 la creación de orden, generación de CLABE y checkout
+hasta `process_payment_success` en Sandbox real. La confirmación por webhook real sigue PENDIENTE.
+
+## Presentación SPEI 0.3.2
+
+Pedido recibido/Mi cuenta, emails al comprador en espera de pago (HTML y texto plano) y
+administración reutilizan los metadatos existentes mediante CRUD. No hay migración.
+La fecha se convierte con `wp_date()`, `wp_timezone()`, `date_format` y `time_format` de WordPress;
+el ISO original se conserva. El importe usa el formato de `wc_price()` y muestra MXN.
+La CLABE y referencias son texto seleccionable, sin scripts ni dependencias adicionales.
+Los emails muestran únicamente CLABE, importe, referencia (incluida la referencia del proveedor
+si ya existe) y vencimiento; no muestran el ID remoto. El administrador sí puede consultar
+el ID remoto y los estados de preparación/confirmación. Ver OPERATIONS.md para los hooks.

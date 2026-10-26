@@ -74,16 +74,7 @@ final class Gateway extends \WC_Payment_Gateway {
                 Diagnostics::event( 'instructions_skipped', (int) $order_id, 'instructions', array( 'reason' => 'not_ready', 'result' => 'not_sent' ) );
                 return;
             }
-            echo '<section class="cannaland-payments-instructions"><h2>' . esc_html__( 'Transferencia SPEI', 'cannaland-payments' ) . '</h2><dl>';
-            $fields = array(
-                __( 'CLABE', 'cannaland-payments' ) => Support::meta( $order, 'clabe' ),
-                __( 'Importe', 'cannaland-payments' ) => Support::meta( $order, 'amount' ) . ' ' . Support::meta( $order, 'currency' ),
-                __( 'Referencia de operación', 'cannaland-payments' ) => Support::meta( $order, 'reference' ),
-            );
-            if ( Support::meta( $order, 'reference_num' ) ) { $fields[ __( 'Referencia del proveedor', 'cannaland-payments' ) ] = Support::meta( $order, 'reference_num' ); }
-            if ( Support::meta( $order, 'expiration_date' ) ) { $fields[ __( 'Vencimiento (incluye zona horaria)', 'cannaland-payments' ) ] = Support::meta( $order, 'expiration_date' ); }
-            foreach ( $fields as $label => $value ) { echo '<dt>' . esc_html( $label ) . '</dt><dd>' . esc_html( $value ) . '</dd>'; }
-            echo '</dl><p>' . esc_html__( 'Transfiere el importe exacto. El pedido se confirmará automáticamente al recibirse la notificación válida de pago.', 'cannaland-payments' ) . '</p></section>';
+            SpeiPresentation::render( $order );
             Diagnostics::event( 'instructions_displayed', (int) $order_id, 'instructions', array( 'reason' => 'displayed', 'result' => 'success' ) );
         } catch ( \Throwable $e ) {
             Diagnostics::event( 'instructions_exception', (int) $order_id, 'instructions', array( 'reason' => 'exception', 'result' => 'local_error', 'exception' => $e ) );

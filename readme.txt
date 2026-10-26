@@ -1,7 +1,7 @@
 === Cannaland Payments ===
 Requires at least: 6.2
 Requires PHP: 8.0
-Stable tag: 0.3.1
+Stable tag: 0.3.2
 Tags: woocommerce, spei, payments
 
 Pasarela de pagos integrada para Cannaland.
@@ -11,7 +11,8 @@ Tres gateways independientes para WooCommerce 8.2 o posterior. SPEI requiere MXN
 Tarjetas y efectivo no procesan pagos hasta recibir sus contratos oficiales.
 Sus ajustes son independientes; permanecen ocultos al comprador aunque se guarde su habilitación.
 Compatible por diseño con CRUD/HPOS y con checkout clásico/Checkout Blocks.
-No se ha validado todavía contra sandbox real. Las pruebas disponibles son sintéticas.
+Creación de orden, CLABE y checkout probados por el cliente en Sandbox real con 0.3.1.
+Confirmación por webhook real pendiente. Las pruebas locales usan dobles y fixtures sintéticos.
 
 == Installation ==
 1. Activa WooCommerce y sube el ZIP del plugin desde WordPress.
@@ -31,6 +32,11 @@ Se bloquea el reintento automático y se requiere conciliación administrativa.
 No. Solo la notificación válida puede confirmar automáticamente un pago nuevo.
 
 == Changelog ==
+= 0.3.2 =
+Presentación SPEI con fecha/zona WordPress e importe WooCommerce.
+Instrucciones en emails HTML/texto y consulta administrativa mediante CRUD, sin migración.
+Sin cambios en creación remota, CLABE, idempotencia ni verificación del webhook.
+
 = 0.3.1 =
 Acepta importes JSON enteros y decimales válidos al crear órdenes SinergyPay.
 Conserva controles de importe, firma, idempotencia y logging seguro.

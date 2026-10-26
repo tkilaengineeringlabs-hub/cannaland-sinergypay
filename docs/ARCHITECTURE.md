@@ -1,4 +1,4 @@
-# Cannaland Payments — arquitectura multimétodo 0.3.1
+# Cannaland Payments — arquitectura multimétodo 0.3.2
 
 La arquitectura propuesta anteriormente queda implementada con las aclaraciones del usuario.
 El flujo implementado es SPEI directo; tarjeta y efectivo siguen como módulos pendientes. SinergyPay permanece como proveedor de infraestructura/API. La base anterior permanece en main/historial; no hay dependencia
@@ -179,3 +179,15 @@ SinergyPayClient. La separación es producto → gateways → servicios → prov
 La firma y las URLs de SinergyPay se conservan; sus nombres son referencias técnicas intencionales.
 Las claves de errores/lookup, locks y claims usan cannaland_payments_; el formato del valor
 reference no cambia. Ver OPERATIONS.md: no hay migración automática de datos de desarrollo.
+
+## Presentación de SPEI 0.3.2
+
+SpeiPresentation es un componente de lectura, separado de Preparation y SinergyPayClient.
+Gateway delega únicamente el renderizado; process_payment no cambia.
+El bootstrap registra una sola instancia para emails y administración, sin depender de
+que WooCommerce instancie el gateway durante el envío diferido de emails.
+La vista usa la misma metadata _cannaland_payments_* de pedidos 0.3.0/0.3.1.
+No modifica estados ni genera solicitudes HTTP. No cambia el callback ni su criptografía.
+
+El cliente confirmó con 0.3.1 el flujo hasta process_payment_success y la CLABE en Sandbox
+real de Horsements. Falta la notificación real, verificación de firma y actualización del pedido.
