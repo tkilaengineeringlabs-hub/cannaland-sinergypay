@@ -1,5 +1,17 @@
 # Operación y validación pendiente
 
+## Estado multimétodo
+
+Los tres métodos se registran por separado en administración, clásico y Blocks. Solo SPEI
+tiene procesamiento implementado. Tarjetas/efectivo tienen ajustes independientes y estructura
+UI/negocio; habilitar su casilla no los vuelve seleccionables hasta contar con integración real.
+Sus solicitudes directas se rechazan sin llamadas API, redirecciones ni cambios en órdenes.
+Tarjetas requiere contrato y definición PCI; efectivo requiere contrato de emisión y confirmación.
+No se debe desplegar una simple modificación de is_ready para ofrecerlos: implementar y probar
+por completo sus respectivos módulos primero.
+
+Las operaciones y validaciones siguientes son SPEI. Su flujo no fue reemplazado.
+
 ## Registro y llaves
 
 Proporcionar a SinergyPay la URL de callback mostrada por el gateway. No se invoca una API de
@@ -63,6 +75,8 @@ respuestas API y objetos WooCommerce simulados. No son eventos reales del provee
 `php tests/bootstrap-smoke.php`: carga/registro con dobles WordPress.
 Opcional `CSP_ORIGINAL_ROOT=/ruta/a/base php tests/bootstrap-smoke.php` carga además el código
 original conservado para detectar colisiones de nombres. No requiere activar ese plugin en producción.
+`node tests/blocks.test.js`: scripts Blocks reales con dobles Woo/React; tres registros y
+disponibilidad separados, sin selector. No es una prueba de navegador.
 `python3 scripts/check.py`: lint PHP, sintaxis JS, diff y búsqueda de dependencias excluidas.
 
 Las pruebas locales no prueban interoperabilidad con SinergyPay ni compatibilidad integral de

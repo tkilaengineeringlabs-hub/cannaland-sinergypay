@@ -1,9 +1,45 @@
-# Cannaland SinergyPay — arquitectura implementada 0.1.0
+# Cannaland SinergyPay — arquitectura multimétodo 0.2.0
 
 La arquitectura propuesta anteriormente queda implementada con las aclaraciones del usuario.
 El contrato es SPEI directo. La base anterior permanece en main/historial; no hay dependencia
 operativa de sus endpoints, clases, IDs, consultas, webhooks ni recursos visuales.
-Gateway y slug lógico: `cannaland_sinergypay` y `cannaland-sinergypay` respectivamente.
+Slug de plugin: `cannaland-sinergypay`; nombre general: Cannaland SinergyPay.
+
+## Gateways independientes
+
+| Método | ID | Opciones | Módulo |
+|---|---|---|---|
+| Tarjetas | cannaland_sinergypay_cards | woocommerce_cannaland_sinergypay_cards_settings | modules/cards |
+| Transferencia SPEI | cannaland_sinergypay | woocommerce_cannaland_sinergypay_settings | Implementación SPEI existente en includes |
+| Pagos en efectivo | cannaland_sinergypay_cash | woocommerce_cannaland_sinergypay_cash_settings | modules/cash |
+
+Methods es un registro local de clases, nombres y recursos; no dirige pagos ni contiene contratos
+remotos. Cada gateway tiene habilitación, título, descripción, hook de guardado y script Blocks
+propios. Los módulos pendientes se registran en administración, pero is_available/is_active y
+canMakePayment impiden ofrecerlos al comprador hasta que su servicio sea operativo. No hay
+selector interno ni éxito simulado. Sus POST directos fallan sin efectos.
+
+La disponibilidad pendiente es deliberada: mostrar métodos incapaces de cobrar como seleccionables
+no satisface una experiencia de pago real. Los tres podrán mostrarse como opciones independientes
+al completar los contratos respectivos, sin alterar SPEI. No se inventa configuración financiera
+para tarjetas/efectivo. Los settings SPEI no se convierten en configuración global de esos módulos.
+
+Tarjetas y efectivo separan gateway/UI, PaymentService y presentación Blocks. Todavía no hay
+cliente API porque no hay contrato. Incorporar el cliente, captura/UX, confirmación y procesamiento
+real será trabajo de cada módulo. PendingGateway es una base administrativa temporal con rechazo
+seguro; cada módulo debe implementar sus propios validate_fields/process_payment al hacerlo operativo.
+No deben habilitarse solo cambiando is_ready: falta implementar el flujo completo.
+
+No se recopilan PAN/CVV ni se asumen tokenización, formularios hospedados, PCI o redirecciones.
+El cliente Api y callback actuales siguen siendo SPEI; no se reutilizan para fingir otros productos.
+El transporte/logging solo se compartirán donde los contratos realmente coincidan.
+
+## Implementación SPEI conservada
+
+Las siguientes secciones describen exclusivamente SPEI. Sus clases de preparación, cliente API,
+firma, webhook, utilidades de montos, bloqueo y persistencia no se modificaron en esta extensión.
+El gateway mantiene su ID/opciones; solo cambia su título predeterminado a Transferencia SPEI.
+Los títulos guardados por el comerciante se conservan.
 
 ## Fuentes y decisiones
 
@@ -32,7 +68,10 @@ Cadena: id|currency|amount|description|reference|date; null vacío; RSA PKCS#1 v
 | includes/class-notification.php | JSON acotado, lexemas numéricos, claves duplicadas y RSA |
 | includes/class-webhook.php | REST POST, correlación, validación e idempotencia |
 | includes/class-gateway.php | Ajustes, checkout e instrucciones escapadas |
-| includes/class-blocks.php y assets/js/blocks.js | Registro en Checkout Blocks |
+| includes/class-blocks.php y scripts de cada método | Una instancia Blocks y un registro frontend independiente por gateway |
+| includes/class-methods.php | Registro local de los tres métodos |
+| includes/class-pending-gateway.php | Ajustes independientes y rechazo seguro de módulos pendientes |
+| modules/cards y modules/cash | Gateways, servicios y UI Blocks pendientes de contratos reales |
 | resources/keys/ | Llaves públicas oficiales locales |
 
 No hay AJAX propio. La autorización del checkout queda en los flujos estándar de WooCommerce.

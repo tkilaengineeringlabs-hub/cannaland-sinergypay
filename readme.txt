@@ -1,19 +1,21 @@
 === Cannaland SinergyPay ===
 Requires at least: 6.2
 Requires PHP: 8.0
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 Tags: woocommerce, spei, payments
 
-Cobros SPEI mediante integración directa SinergyPay con CLABE y notificación RSA/SHA-512.
+Métodos SinergyPay independientes para WooCommerce: SPEI implementado; tarjetas y efectivo estructurados.
 
 == Description ==
-Gateway cannaland_sinergypay para WooCommerce 8.2 o posterior. Requiere MXN y OpenSSL.
+Tres gateways independientes para WooCommerce 8.2 o posterior. SPEI requiere MXN y OpenSSL.
+Tarjetas y efectivo no procesan pagos hasta recibir sus contratos oficiales.
+Sus ajustes son independientes; permanecen ocultos al comprador aunque se guarde su habilitación.
 Compatible por diseño con CRUD/HPOS y con checkout clásico/Checkout Blocks.
 No se ha validado todavía contra sandbox real. Las pruebas disponibles son sintéticas.
 
 == Installation ==
 1. Activa WooCommerce y sube el ZIP del plugin desde WordPress.
-2. Configura entorno, API key privada y vencimiento en WooCommerce > Ajustes > Pagos.
+2. Configura entorno, API key privada y vencimiento en WooCommerce > Ajustes > Pagos > Transferencia SPEI.
 3. Proporciona a SinergyPay la URL de callback mostrada en esos ajustes.
 4. Completa la validación sandbox antes de habilitar cobros en producción.
 
@@ -29,5 +31,9 @@ Se bloquea el reintento automático y se requiere conciliación administrativa.
 No. Solo la notificación válida puede confirmar automáticamente un pago nuevo.
 
 == Changelog ==
+= 0.2.0 =
+Arquitectura multimétodo: gateways/ajustes/Blocks independientes; tarjetas y efectivo pendientes.
+SPEI conserva identificador, opciones y flujo de pago.
+
 = 0.1.0 =
 Integración directa SPEI, CLABE, verificación de notificaciones e idempotencia conservadora.
