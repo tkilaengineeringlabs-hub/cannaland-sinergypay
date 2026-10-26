@@ -49,9 +49,41 @@ $o=diagnostic_setup(); $GLOBALS['responses'][]=new WP_Error('http_request_failed
 $c=diagnostic_context('create_order_response');
 check('WP_Error code and timeout number retained safely',$c['wp_error_code']==='http_request_failed' && $c['curl_code']===28 && $c['response_type']==='wp_error' && $c['certainty']==='ambiguous');
 
-$o=diagnostic_setup(); queue_success(); $data=json_decode($GLOBALS['responses'][0]['body'],true); $data['data']['amount']=10.0;
-$GLOBALS['responses'][0]['body']=json_encode($data); (new Gateway)->process_payment(1); $c=diagnostic_failure();
-check('numeric response amount diagnosed without relaxing contract',$c['stage']==='order_response_validation' && $c['reason']==='amount_type_invalid' && $c['field_types']['amount']==='integer' && $c['http_status']===201 && Support::meta($o,'remote_order_id')==='remote-1' && count($GLOBALS['requests'])===1);
+// Synthetic reproduction of Horsements' observed response types, not a real provider fixture.
+$o=diagnostic_setup(); queue_success();
+$GLOBALS['responses'][0]=['status'=>200,'body'=>'{"rc":0,"msg":"Ok","data":{"id":"remote-1","amount":10.0,"currency":"MXN","expiration_date":"2030-01-01T12:00:00-06:00","description":"Cannaland order #1"}}'];
+$decoded=json_decode($GLOBALS['responses'][0]['body'],true);
+check('Horsements regression actually decodes amount as double',is_float($decoded['data']['amount']) && !array_key_exists('clabe',$decoded['data']));
+$result=(new Gateway)->process_payment(1); $c=diagnostic_context('create_order_response');
+check('HTTP 200 rc zero Ok double amount reaches CLABE request',$c['http_status']===200 && $c['rc']===0 && $c['provider_message']==='Ok' && $c['field_types']['amount']==='double' && count($GLOBALS['requests'])===2 && $GLOBALS['requests'][1][0]==='https://sandbox.sinergypay.mx/v2/orders/remote-1/clabe');
+check('double amount checkout completes preparation without confirming payment',$result['result']==='success' && $o->status==='on-hold' && $o->completions===0 && Support::meta($o,'remote_order_id')==='remote-1' && Support::meta($o,'preparation')==='ready' && !diagnostic_failure());
+check('observed response follows all ten expected milestones',array_column($GLOBALS['logger']->events,0)===['process_payment_started','reference_prepared','create_order_request','create_order_response','remote_order_saved','create_clabe_request','create_clabe_response','clabe_saved','order_on_hold','process_payment_success']);
+$before=count($GLOBALS['requests']); (new Gateway)->process_payment(1);
+check('numeric response preparation remains reusable without duplicate POSTs',count($GLOBALS['requests'])===$before);
+foreach ([10,10.25,0.01,10.1] as $value) {
+    $o=diagnostic_setup(); $o->total=number_format($value,2,'.',''); queue_success();
+    $data=json_decode($GLOBALS['responses'][0]['body'],true); $data['data']['amount']=$value;
+    $GLOBALS['responses'][0]=['status'=>200,'body'=>json_encode($data,JSON_PRESERVE_ZERO_FRACTION)];
+    check('JSON numeric creation amount accepted '.gettype($value).' '.$value,(new Gateway)->process_payment(1)['result']==='success' && count($GLOBALS['requests'])===2 && !diagnostic_failure());
+}
+foreach ([true,false,null,[],new stdClass(),'not-numeric','10xyz','1e1',' 10.00',10.001,-10.0] as $value) {
+    $o=diagnostic_setup(); queue_success(); $data=json_decode($GLOBALS['responses'][0]['body'],true); $data['data']['amount']=$value;
+    $GLOBALS['responses'][0]['body']=json_encode($data,JSON_PRESERVE_ZERO_FRACTION); (new Gateway)->process_payment(1);
+    check('invalid response amount blocks CLABE and retains remote ID '.gettype($value),diagnostic_failure()['reason']==='amount_type_invalid' && count($GLOBALS['requests'])===1 && Support::meta($o,'remote_order_id')==='remote-1' && Support::meta($o,'order_state')==='ambiguous');
+    (new Gateway)->process_payment(1);
+    check('invalid response amount never recreates remote order',count($GLOBALS['requests'])===1);
+}
+foreach ([INF,-INF,NAN,10000000000.0,0.001] as $value) {
+    check('non-finite out-of-range and sub-cent amounts rejected',Support::response_money($value)===null);
+}
+check('API numeric normalization leaves signed webhook amount rules unchanged',Support::money(10.0)===null && Support::money('10.00')==='10.00' && Support::response_money('10.00')==='10.00');
+$o=diagnostic_setup(); queue_success(); $data=json_decode($GLOBALS['responses'][0]['body'],true); $data['data']['amount']=11.0;
+$GLOBALS['responses'][0]['body']=json_encode($data,JSON_PRESERVE_ZERO_FRACTION); (new Gateway)->process_payment(1);
+check('valid numeric type with different value remains rejected',diagnostic_failure()['reason']==='amount_mismatch' && count($GLOBALS['requests'])===1);
+// Existing ambiguous orders are never automatically retried or reset by this fix.
+$o=diagnostic_setup(); Support::put($o,'remote_order_id','already-created'); Support::put($o,'order_state','ambiguous'); $o->save();
+(new Gateway)->process_payment(1);
+check('historical ambiguous remote order remains blocked',count($GLOBALS['requests'])===0 && Support::meta($o,'remote_order_id')==='already-created');
 foreach (['id'=>null,'amount'=>'11.00','currency'=>'USD','description'=>'different','expiration_date'=>'not-a-date'] as $field=>$value) {
     $o=diagnostic_setup(); queue_success(); $data=json_decode($GLOBALS['responses'][0]['body'],true); $data['data'][$field]=$value;
     $GLOBALS['responses'][0]['body']=json_encode($data); (new Gateway)->process_payment(1); $c=diagnostic_failure();

@@ -34,6 +34,18 @@ final class Support {
         if ( ! is_string( $value ) || ! preg_match( '/^([0-9]{1,10})(?:\.([0-9]{1,2}))?$/D', $value, $m ) ) { return null; }
         return ( ltrim( $m[1], '0' ) ?: '0' ) . '.' . str_pad( $m[2] ?? '', 2, '0' );
     }
+    // Creation responses may contain JSON numbers. Never use this for signed webhook text.
+    public static function response_money( $value ): ?string {
+        if ( is_int( $value ) ) { return self::money( (string) $value ); }
+        if ( is_float( $value ) ) {
+            if ( ! is_finite( $value ) || $value < 0 || $value > 9999999999.99 ) { return null; }
+            $decimal = number_format( $value, 2, '.', '' );
+            // Accept only a value that round-trips unchanged: do not round fractional cents.
+            if ( (float) $decimal !== $value ) { return null; }
+            return self::money( $decimal );
+        }
+        return self::money( $value );
+    }
     public static function lock( int $id ): bool {
         // Atomic unique option_name insert across workers; no transient/read-then-write lock.
         return add_option( 'cannaland_payments_order_lock_' . $id, time(), '', false );

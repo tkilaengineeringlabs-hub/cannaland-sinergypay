@@ -97,11 +97,12 @@ final class Preparation {
             $order->save();
             Diagnostics::event( 'remote_order_saved', $id, $this->stage, array_merge( $this->diagnostic, array( 'reason' => 'saved', 'result' => 'success' ) ) );
             $this->stage = 'order_response_validation';
-            if ( ! is_string( $data['amount'] ?? null ) || Support::money( $data['amount'] ) !== $amount ||
+            $response_amount = Support::response_money( $data['amount'] ?? null );
+            if ( null === $response_amount || $response_amount !== $amount ||
                 ( $data['currency'] ?? null ) !== 'MXN' || ( $data['description'] ?? null ) !== Support::meta( $order, 'description' ) ||
                 ! is_string( $data['expiration_date'] ?? null ) || false === strtotime( $data['expiration_date'] ) ) {
-                $reason = ! is_string( $data['amount'] ?? null ) ? 'amount_type_invalid' :
-                    ( Support::money( $data['amount'] ) !== $amount ? 'amount_mismatch' :
+                $reason = null === $response_amount ? 'amount_type_invalid' :
+                    ( $response_amount !== $amount ? 'amount_mismatch' :
                     ( ( $data['currency'] ?? null ) !== 'MXN' ? 'currency_mismatch' :
                     ( ( $data['description'] ?? null ) !== Support::meta( $order, 'description' ) ? 'description_mismatch' : 'expiration_invalid' ) ) );
                 $this->report( $reason, 'ambiguous' );
