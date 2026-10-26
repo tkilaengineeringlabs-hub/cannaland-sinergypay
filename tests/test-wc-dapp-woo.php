@@ -245,7 +245,7 @@ class WC_DappWooTest extends WP_UnitTestCase {
 
 		// Not Posting Anything.
 		$ret = RequestDepositAction::ajax_callback_wp();
-		$this->assertTrue( true === $ret );
+		$this->assertFalse( true === $ret );
 		// Delete order.
 		\WC_Helper_Order::delete_order( $order->get_id() );
 
