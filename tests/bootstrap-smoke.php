@@ -35,7 +35,7 @@ function rest_url($path){return 'https://shop.example/wp-json/'.$path;}
 function get_site_url($id,$path){return 'https://shop.example'.$path;}
 function get_admin_url($id,$path){return 'https://shop.example/wp-admin/'.$path;}
 function load_plugin_textdomain(...$args){}
-function wc_get_logger(){return new stdClass;}
+function wc_get_logger(){return $GLOBALS['logger'] ?? new stdClass;}
 function register_rest_route(...$args){$GLOBALS['routes'][]=$args;}
 function run_action($tag,...$args){foreach($GLOBALS['actions'][$tag] ?? [] as $callback){$callback(...$args);}}
 $GLOBALS['options']=[

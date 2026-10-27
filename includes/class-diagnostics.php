@@ -6,6 +6,8 @@ defined( 'ABSPATH' ) || exit;
 final class Diagnostics {
     const SOURCE = 'cannaland-payments';
     private const EVENTS = array(
+        'webhook_received', 'webhook_dispatch_rejected', 'invalid_json', 'invalid_signature', 'reference_missing', 'order_not_found',
+        'amount_mismatch', 'duplicate_webhook', 'payment_confirmed', 'webhook_rejected', 'webhook_exception',
         'process_payment_started', 'process_payment_failed', 'process_payment_exception', 'process_payment_success',
         'preparation_failed', 'preparation_exception', 'reference_prepared', 'preparation_reused',
         'create_order_request', 'create_order_response', 'remote_order_saved',
@@ -13,6 +15,7 @@ final class Diagnostics {
         'instructions_started', 'instructions_skipped', 'instructions_displayed', 'instructions_exception',
     );
     private const STAGES = array(
+        'webhook_dispatch', 'webhook_entry', 'webhook_body', 'webhook_verification', 'webhook_shape', 'webhook_lookup', 'webhook_lock', 'webhook_consistency', 'webhook_confirmation',
         'process_payment', 'order_lock', 'order_validation', 'configuration_validation', 'reference_persistence',
         'snapshot_validation', 'order_state_validation', 'order_sending_persistence', 'create_order',
         'order_response_validation', 'remote_order_persistence', 'order_details_persistence',
@@ -20,6 +23,11 @@ final class Diagnostics {
         'clabe_persistence', 'order_state_persistence', 'clabe_state_persistence', 'on_hold_transition', 'preparation', 'cart_clear', 'redirect', 'instructions',
     );
     private const REASONS = array(
+        'dispatch_rejected', 'invalid_signature', 'reference_missing', 'reference_format_invalid', 'invalid_signed_fields', 'missing_signed_fields',
+        'invalid_security_structure', 'unsupported_security_version', 'security_missing', 'crypto_unavailable',
+        'payments_shape_invalid', 'payment_product_invalid', 'order_inconsistent', 'remote_order_mismatch',
+        'reference_mismatch', 'environment_mismatch', 'preparation_not_ready', 'transaction_conflict',
+        'confirmation_interrupted', 'claim_unavailable', 'claim_conflict', 'confirmed', 'duplicate',
         'started', 'saved', 'success', 'reused', 'prepared', 'displayed', 'not_ready', 'lock_unavailable',
         'order_not_found', 'wrong_gateway', 'already_paid', 'invalid_order_status', 'unsupported_currency',
         'invalid_environment', 'missing_api_key', 'invalid_api_key_format', 'invalid_expiration',
@@ -31,10 +39,10 @@ final class Diagnostics {
         'expiration_invalid', 'invalid_clabe_type', 'invalid_clabe_length', 'invalid_clabe_characters',
         'preparation_error', 'exception',
     );
-    private const TYPES = array( 'null', 'string', 'integer', 'double', 'boolean', 'array', 'object', 'resource', 'missing' );
+    private const TYPES = array( 'json_number', 'null', 'string', 'integer', 'double', 'boolean', 'array', 'object', 'resource', 'missing' );
     private const KINDS = array( 'not_sent', 'in_progress', 'success', 'local_error', 'rejected', 'ambiguous', 'blocked', 'reused' );
     private const KEYS = array( 'rc', 'msg', 'data', 'error', 'errors', 'code', 'message', 'status',
-        'id', 'creation_date', 'expiration_date', 'description', 'amount', 'currency', 'reference_num', 'clabe' );
+        'id', 'creation_date', 'expiration_date', 'description', 'amount', 'currency', 'reference_num', 'clabe', 'reference', 'date', 'payments', 'security' );
 
     public static function event( string $event, int $order_id, string $stage, array $details = array() ): void {
         try {
@@ -43,7 +51,7 @@ final class Diagnostics {
             $context = array( 'source' => self::SOURCE, 'diagnostics' => 'spei-v1', 'stage' => $stage,
                 'order_id' => max( 0, $order_id ), 'endpoint' => 'local', 'response_type' => 'not_applicable' );
             $endpoint = $details['endpoint'] ?? 'local';
-            if ( in_array( $endpoint, array( 'local', '/orders/', '/orders/{order_id}/clabe' ), true ) ) { $context['endpoint'] = $endpoint; }
+            if ( in_array( $endpoint, array( 'local', '/orders/', '/orders/{order_id}/clabe', '/wp-json/cannaland-payments/v1/payment-notification' ), true ) ) { $context['endpoint'] = $endpoint; }
             foreach ( array( 'reason' => self::REASONS, 'result' => self::KINDS,
                 'stored_state' => array( 'sending', 'succeeded', 'ambiguous', 'rejected', 'local_error', 'paid', 'ready', 'applying', 'missing' ), 'value_type' => self::TYPES,
                 'response_type' => array( 'not_applicable', 'wp_error', 'http_response', 'json_object', 'json_array', 'json_null', 'json_string', 'json_number', 'json_boolean', 'invalid_json', 'empty_body', 'unexpected_transport_type' ) ) as $key => $allowed ) {
@@ -52,6 +60,7 @@ final class Diagnostics {
             foreach ( array( 'http_status' => array( 100, 599 ), 'rc' => array( -999999, 999999 ), 'curl_code' => array( 0, 999 ) ) as $key => $bounds ) {
                 if ( isset( $details[$key] ) && is_int( $details[$key] ) && $details[$key] >= $bounds[0] && $details[$key] <= $bounds[1] ) { $context[$key] = $details[$key]; }
             }
+            if ( is_bool( $details['signature_verified'] ?? null ) ) { $context['signature_verified'] = $details['signature_verified']; }
             if ( isset( $details['wp_error_code'] ) ) { $context['wp_error_code'] = self::error_code( $details['wp_error_code'] ); }
             if ( isset( $details['provider_message'] ) ) {
                 $context['provider_message'] = in_array( $details['provider_message'], array( 'Ok', 'OK', 'ok', 'Success', 'Unauthorized', 'Forbidden', 'Invalid API key', 'Rejected', 'Error' ), true ) ? $details['provider_message'] : '[omitted_untrusted_message]';
@@ -88,6 +97,14 @@ final class Diagnostics {
         } catch ( \Throwable $ignored ) {
             // Diagnostics must never change payment semantics, retry a POST or throw to checkout.
         }
+    }
+    public static function notification_shape( \stdClass $payload ): array {
+        $details = array( 'response_keys' => array_keys( get_object_vars( $payload ) ), 'field_types' => array() );
+        foreach ( array( 'id', 'currency', 'amount', 'description', 'reference', 'date', 'reference_num', 'payments', 'security', 'code', 'clabe' ) as $key ) {
+            $value = $payload->{$key} ?? null;
+            $details['field_types'][$key] = ! property_exists( $payload, $key ) ? 'missing' : ( $value instanceof JsonNumber ? 'json_number' : self::type( $value ) );
+        }
+        return $details;
     }
     private static function error_code( $code ): string {
         $known = array( 'http_request_failed', 'http_request_not_executed', 'http_request_rejected', 'http_no_url', 'http_no_protocol', 'http_404',

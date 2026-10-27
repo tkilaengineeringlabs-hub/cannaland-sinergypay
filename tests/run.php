@@ -11,7 +11,7 @@ class WP_Error {
     public function get_error_code() { return $this->code; }
     public function get_error_message() { return $this->message; }
 }
-class WP_REST_Response { public $data; public $status; public function __construct( $data, $status ) { $this->data=$data; $this->status=$status; } }
+class WP_REST_Response { public $data; public $status; public function __construct( $data, $status ) { $this->data=$data; $this->status=$status; } public function get_status(){return $this->status;} public function get_data(){return $this->data;} }
 function is_wp_error( $value ) { return $value instanceof WP_Error; }
 function __( $value, ...$args ) { return $value; }
 function esc_html__( $value, ...$args ) { return htmlspecialchars( $value, ENT_QUOTES, 'UTF-8' ); }
@@ -346,4 +346,5 @@ foreach([$cards,$cash] as $pending) {
 check('neutral persistent order lock',Support::lock(99) && array_key_exists('cannaland_payments_order_lock_99',$GLOBALS['options'])); Support::unlock(99);
 require __DIR__.'/diagnostics.php';
 require __DIR__.'/presentation.php';
+require __DIR__.'/webhook-diagnostics.php';
 echo "$count assertions passed. Synthetic fixtures and WooCommerce doubles; no live financial API.\n";
