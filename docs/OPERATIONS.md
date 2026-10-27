@@ -247,3 +247,10 @@ Solo se añade data-copy-state al feedback actual del JS para aplicar el estilo 
 no se cambian portapapeles, valores ni tiempos. La nota final web usa «confirmación válida de
 pago». No se modifican las ramas de renderizado de email ni se les aplica este CSS oscuro.
 Validación local automatizada; apariencia final con el tema Horsements pendiente de revisión visual.
+
+
+## Investigación de recepción webhook
+
+Ver [WEBHOOK-DIAGNOSTICS.md](WEBHOOK-DIAGNOSTICS.md): ruta, eventos desde entrada, rechazos
+del core, probe interno sin firma, pruebas HTTP loopback y requisitos potencialmente incompatibles.
+El diagnóstico no confirma accesibilidad pública ni recepción real de SinergyPay Lab.

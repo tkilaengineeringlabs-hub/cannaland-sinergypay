@@ -1,0 +1,112 @@
+# Diagnóstico del webhook SinergyPay
+
+Este cambio añade observabilidad, no un contrato nuevo ni un bypass de firma. Parte de 0.3.4;
+no cambia creación SPEI, CLABE, claves, formato de referencia, monto RAW ni criterios de pago.
+No se contactó Horsements ni SinergyPay ni se alteró el pedido real #31084.
+
+## Registro y exposición
+
+El archivo principal, en plugins_loaded, exige WC_Payment_Gateway y WC_VERSION >=8.2;
+solo entonces instala el callback de rest_api_init que ejecuta Webhook::register().
+Ruta: /cannaland-payments/v1/payment-notification; URL habitual:
+/wp-json/cannaland-payments/v1/payment-notification. Método: POST; callback: Webhook::receive;
+permission_callback: __return_true. No exige login, nonce ni API key para entrar: la autorización
+financiera se decide por RSA/SHA-512 y correspondencia del evento. No hay args/validadores propios
+previos al handler. El registro es correcto en código y en el smoke test del bootstrap.
+
+Esto no prueba la exposición pública de Horsements: faltan dominio/URL final y evidencia de
+entrega de SinergyPay Lab (destino exacto, método, hora, HTTP status y respuesta). Plugin inactivo,
+WooCommerce ausente, filtros REST/auth, JSON inválido, redirects, TLS, proxy o WAF pueden impedir
+el acceso. No se debe inferir de un log vacío que el proveedor no envió la solicitud.
+
+## Logs
+
+Habilitar Registro seguro y el logger global WooCommerce con umbral Info. Fuente:
+**cannaland-payments**. Recibo/éxitos/duplicados son Info; rechazos/excepciones son Error.
+Antes solo se registraban excepciones genéricas: los rechazos normales eran silenciosos.
+
+Primer acto del handler: webhook_received, stage=webhook_entry, order_id=0,
+signature_verified=false. Después: invalid_json, invalid_signature, reference_missing,
+order_not_found, amount_mismatch, duplicate_webhook, payment_confirmed, webhook_rejected
+o webhook_exception. Los eventos llevan stage, reason y http_status final. Solo se añade el
+ID WooCommerce después de verificar la firma y localizar la orden. Nunca se registran valores
+de referencia, CLABE, importe, firmas, security.key, API keys, Authorization ni cuerpos.
+Las estructuras se describen mediante nombres de campos permitidos y tipos, no valores.
+
+rest_post_dispatch observa pasivamente el resultado de esta ruta POST, sin modificarlo.
+WordPress puede rechazar JSON antes del handler: invalid_json con stage=webhook_dispatch
+indica rest_invalid_json del core. Otros fallos REST producen webhook_dispatch_rejected;
+puede ser también un resumen adicional de un rechazo del handler. Sin webhook_received no
+se ha demostrado entrada al callback. Este filtro no ve bloqueos del proxy/WAF anteriores a WP.
+No desactiva autenticación ni validaciones. No registra mensajes arbitrarios de otros plugins.
+
+Código oficial WordPress: has_valid_params invoca parse_json_params antes del callback:
+https://developer.wordpress.org/reference/classes/wp_rest_request/has_valid_params/
+
+## Prueba segura en una instalación WordPress
+
+Ejecutar internamente con WP-CLI, con WordPress y el plugin cargados:
+
+    wp eval-file scripts/probe-webhook.php
+
+Es un despacho REST interno POST, no una petición externa a Horsements. El body fijo es:
+
+    {"probe":"cannaland-payments-reachability"}
+
+No tiene referencia, pedido, monto ni security/firma. Se rechaza antes de buscar órdenes y no
+puede pagarlas. No añade modo de prueba a la ruta ni omite criptografía. No cambia settings.
+Resultado esperado del handler: HTTP 401, datos de respuesta null; eventos webhook_received e
+invalid_signature, reason=security_missing. Un filtro anterior puede devolver otro status:
+se debe investigar, no modificar el probe para forzar éxito. El script no imprime bodies ajenos.
+No pudo ejecutarse sobre WordPress real aquí: no hay instalación WP/WP-CLI disponible.
+Sí se ejecutó su código con dobles REST y se verificó que no consulta ni paga pedidos.
+
+En HTTP externo, enviar ese mismo JSON sin cookies, Authorization ni nonce permite probar
+la llegada de manera segura. En WordPress estándar, datos null producen cuerpo vacío, no el
+texto JSON "null". No cambia el ACK existente. Referencia oficial:
+https://developer.wordpress.org/reference/classes/wp_rest_server/serve_request/
+
+## HTTP local ejecutado
+
+    python3 tests/http-webhook-test.py
+
+Servidor PHP limitado a 127.0.0.1; usa el bootstrap real del plugin y su callback registrado,
+con routing/transporte WordPress simulados, sin base de datos. Cualquier lectura/escritura de
+órdenes provoca error; todas las pruebas negativas terminaron sin esos accesos.
+
+- POST JSON de prueba sin firma: 401, cuerpo vacío, webhook_received -> invalid_signature.
+- POST JSON malformado al handler del adaptador: 400, cuerpo vacío,
+  webhook_received -> invalid_json. En WP real el core puede interceptarlo previamente y
+  devolver su propio objeto rest_invalid_json; ese caso se cubre aparte con el filtro pasivo.
+- POST con nombres de campos sugeridos y sin firma válida: 401, cuerpo vacío,
+  webhook_received -> invalid_signature.
+- GET: el adaptador lo rechaza antes del handler. No prueba el routing real de WordPress.
+
+La prueba de transporte HTTP local no valida DNS/TLS/WAF de Horsements ni entrega del proveedor.
+
+## Compatibilidad potencial del payload indicado
+
+La lista id, currency, amount, reference, reference_num, payments, security, code, clabe no
+basta para confirmar compatibilidad. Estos son los requisitos actuales, no nuevos supuestos:
+
+| Área | Requisito actual / posible incompatibilidad |
+| --- | --- |
+| Campos firmados raíz | id, currency, amount, description, reference, date deben existir. description/date ausentes fallan. null se convierte a vacío para la firma; fechas/referencia/monto vacíos no pagan. |
+| amount | Texto o número JSON cuyo lexema se conserva exactamente; no se reconstruye desde float. Tras firma se compara a precisión de centavos con metadata y total WooCommerce. |
+| security | Objeto con version numérico exactamente 1, key string y signature Base64 canónica. version string "1", campos anidados de otra forma o firmas con otro encoding fallan. key no selecciona archivos. |
+| RSA | PKCS#1 v1.5 + SHA-512 y llave oficial del entorno; cadena id\|currency\|amount\|description\|reference\|date, sin cambios. |
+| reference | csp-ID-UUID y coincidencia exacta con metadata. Solo después de firma se utiliza para búsqueda HPOS/CRUD. |
+| payments | Array no vacío; cada elemento tiene id string válido y Product.id numérico 22, con P mayúscula. id string "22", product minúscula, omisión o distinto anidamiento se rechazan. |
+| code | String igual a remote_order_id guardado. No se usa para seleccionar la orden. Confirmar con payload real qué representa. |
+| id raíz | Actualmente identifica el ticket firmado y transaction ID. Hay que comprobar esa semántica con la notificación real; no sustituirlo por payments[].id sin evidencia. |
+| reference_num / clabe | Son extras admitidos; no sustituyen reference ni demuestran pago. No se usan para confirmar. |
+
+No se relajó ninguno de estos requisitos. Para adaptar el contrato hace falta la notificación
+RAW exacta por un canal seguro, tipos/anidamiento, documentación oficial aplicable al entorno y
+respuesta de entrega. No pegar firmas/datos sensibles en logs o Git. El diagnóstico registra
+solo tipos y motivos. Una lista de claves o un fixture sintético no prueba interoperabilidad.
+
+La confirmación válida conserva: ticket único por entorno, bloqueo por orden, checks de monto,
+moneda, descripción, estado y vínculo remoto; payment_complete una sola vez; duplicado ya
+confirmado => HTTP 200 sin repetir efectos. Los tests positivos usan RSA sintética y pedidos
+en memoria, nunca la orden #31084. El webhook real sigue PENDIENTE de validación.

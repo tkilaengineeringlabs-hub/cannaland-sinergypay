@@ -142,3 +142,10 @@ La tarjeta SPEI usa fondo #171b1f/#20262b, texto blanco y acento #9BE22D con est
 limitados a .cannaland-payments-spei. Importe destacado, botones con foco visible y estado
 verde de copiado, vencimiento y nota final en cajas sutiles. Móvil apila label/valor/botón.
 Emails conservan su presentación simple. No cambian pagos, referencia ni datos copiados.
+
+## Diagnóstico de webhook
+
+Fuente `cannaland-payments`, con Registro seguro e Info habilitados. El primer evento del
+handler es `webhook_received`; los rechazos se registran sin cuerpos ni firmas.
+Consulta [la guía de diagnóstico](docs/WEBHOOK-DIAGNOSTICS.md), que incluye un probe interno
+sin firma que no puede confirmar órdenes y los límites de las pruebas locales.
