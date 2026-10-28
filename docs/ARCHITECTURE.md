@@ -1,4 +1,4 @@
-# Cannaland Payments — arquitectura multimétodo 0.3.4
+# Cannaland Payments — arquitectura multimétodo 0.3.5
 
 La arquitectura propuesta anteriormente queda implementada con las aclaraciones del usuario.
 El flujo implementado es SPEI directo; tarjeta y efectivo siguen como módulos pendientes. SinergyPay permanece como proveedor de infraestructura/API. La base anterior permanece en main/historial; no hay dependencia

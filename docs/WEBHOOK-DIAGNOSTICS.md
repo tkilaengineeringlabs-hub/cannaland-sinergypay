@@ -1,6 +1,6 @@
 # Diagnóstico del webhook SinergyPay
 
-Este cambio añade observabilidad, no un contrato nuevo ni un bypass de firma. Parte de 0.3.4;
+Publicado en 0.3.5: añade observabilidad, no un contrato nuevo ni un bypass de firma. Parte de 0.3.4;
 no cambia creación SPEI, CLABE, claves, formato de referencia, monto RAW ni criterios de pago.
 No se contactó Horsements ni SinergyPay ni se alteró el pedido real #31084.
 

@@ -2,7 +2,7 @@
 
 Pasarela de pagos integrada para Cannaland.
 SinergyPay se utiliza como proveedor de infraestructura/API para SPEI.
-Versión 0.3.4. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
+Versión 0.3.5. Requiere WordPress 6.2+, WooCommerce 8.2+, PHP 8.0+ y OpenSSL.
 Incluye registro independiente en checkout clásico y WooCommerce Blocks; no hay selector interno.
 
 | Método | Gateway ID | Estado actual |
@@ -20,7 +20,7 @@ No se presenta su estructura como si ya fueran métodos utilizables.
 
 ## Instalación y configuración
 
-Instala `dist/cannaland-payments-0.3.4.zip` desde Plugins → Añadir plugin → Subir plugin.
+Instala `dist/cannaland-payments-0.3.5.zip` desde Plugins → Añadir plugin → Subir plugin.
 Activa WooCommerce y Cannaland Payments. En WooCommerce → Ajustes → Pagos → Transferencia SPEI configura:
 
 - Habilitar/deshabilitar, título y descripción.
@@ -97,7 +97,7 @@ Sus adaptadores UI y servicios se extenderán dentro de cada módulo; SPEI no ne
 
 ## Diagnóstico SPEI
 
-La versión 0.3.4 conserva el marcador de log `diagnostics=spei-v1`.
+La versión 0.3.5 conserva el marcador de log `diagnostics=spei-v1`.
 Con Registro seguro habilitado, buscar fuente `cannaland-payments` en WooCommerce > Estado >
 Registros. El logger global debe estar activo y su umbral debe permitir Info para ver los hitos;
 los fallos se registran como Error. Ver OPERATIONS.md para eventos, campos y límites de privacidad.
