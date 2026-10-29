@@ -136,7 +136,6 @@ final class Webhook {
         elseif ( Support::meta( $order, 'environment' ) !== $env ) { $reason = 'environment_mismatch'; }
         elseif ( 'ready' !== Support::meta( $order, 'preparation' ) ) { $reason = 'preparation_not_ready'; }
         elseif ( ! Support::id( Support::meta( $order, 'remote_order_id' ) ) || ! is_string( $p->code ?? null ) || $p->code !== Support::meta( $order, 'remote_order_id' ) ) { $reason = 'remote_order_mismatch'; }
-        elseif ( $s['description'] !== Support::meta( $order, 'description' ) ) { $reason = 'description_mismatch'; }
         elseif ( 'MXN' !== $s['currency'] || $s['currency'] !== $order->get_currency() || $s['currency'] !== Support::meta( $order, 'currency' ) ) { $reason = 'currency_mismatch'; }
         elseif ( Support::money( $s['amount'] ) !== Support::meta( $order, 'amount' ) || Support::money( (string) $order->get_total() ) !== Support::meta( $order, 'amount' ) ) { $reason = 'amount_mismatch'; }
         if ( '' !== $reason ) { return $this->outcome( 'amount_mismatch' === $reason ? 'amount_mismatch' : 'webhook_rejected', 409, 'webhook_consistency', $id, $reason, true, Diagnostics::notification_shape( $p ) ); }

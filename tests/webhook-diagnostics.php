@@ -27,9 +27,9 @@ $o=webhook_setup();$response=$webhook->receive(webhook_request(signed(event($o,[
 check('unmatched authenticated reference traced 409',$response->status===409 && webhook_trace('order_not_found')['stage']==='webhook_lookup' && $o->completions===0);
 $o=webhook_setup();$response=$webhook->receive(webhook_request(signed(event($o,['amount'=>'780.00']))));
 check('amount mismatch named explicitly without changing verdict',$response->status===409 && webhook_trace('amount_mismatch')['order_id']===1 && $o->completions===0);
-$o=webhook_setup();foreach(['currency'=>'USD','description'=>'other','code'=>'other'] as $key=>$value){
+$o=webhook_setup();foreach(['currency'=>'USD','code'=>'other'] as $key=>$value){
  $response=$webhook->receive(webhook_request(signed(event($o,[$key=>$value]))));
- check('consistency rejection reason '.$key,$response->status===409 && webhook_trace('webhook_rejected')['reason']===['currency'=>'currency_mismatch','description'=>'description_mismatch','code'=>'remote_order_mismatch'][$key] && $o->completions===0);
+ check('consistency rejection reason '.$key,$response->status===409 && webhook_trace('webhook_rejected')['reason']===['currency'=>'currency_mismatch','code'=>'remote_order_mismatch'][$key] && $o->completions===0);
 }
 $o=webhook_setup();$raw=signed(event($o));$response=$webhook->receive(webhook_request($raw));
 check('synthetic confirmation trace emitted only after completion',$response->status===200 && webhook_trace('payment_confirmed')['signature_verified']===true && $o->completions===1);

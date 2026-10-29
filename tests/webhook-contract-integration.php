@@ -77,7 +77,6 @@ foreach([
     ['different amount',['amount'=>'5.01'],409,'amount_mismatch'],
     ['different currency',['currency'=>'USD'],409,'currency_mismatch'],
     ['different remote order',['code'=>'OTHER-CODE'],409,'remote_order_mismatch'],
-    ['different description',['description'=>'otra descripción'],409,'description_mismatch'],
 ] as [$label,$change,$status,$reason]) {
     [$order,$other]=contract_setup($contractFixture);$handler=new Webhook(new Notification($keydir));
     $response=contract_dispatch($handler,signed(array_replace($contractFixture,$change)));
@@ -149,4 +148,36 @@ foreach(['signature','amount','currency','reference','code'] as $field) {
     $raw=signed($data);if($field==='signature'){$raw=str_replace('"description":"chocolates"','"description":"changed"',$raw);}
     $response=contract_dispatch($handler,$raw);
     check('lowercase preserves security and association '.$field,$response->get_status()===($field==='signature'?401:409) && $order->completions===0 && $order->status==='on-hold' && !webhook_trace('payment_confirmed'));
+}
+
+// A signed provider description is authenticated, not a second order identifier.
+// These texts are synthetic variants, NOT the undisclosed description from real order #31097.
+foreach(['Descripción distinta firmada','',null,'SPEI: café 🌿'] as $description) {
+    [$order,$other]=contract_setup($contractFixture);$handler=new Webhook(new Notification($keydir));
+    $data=$contractFixture;$data['description']=$description;
+    $data['payments'][0]['product']=$data['payments'][0]['Product'];unset($data['payments'][0]['Product']);
+    $snapshot=Support::meta($order,'description');$raw=signed($data);
+    $response=contract_dispatch($handler,$raw);
+    check('signed provider description reaches confirmation '.json_encode($description),$response->get_status()===200 && webhook_trace('payment_confirmed')['signature_verified']===true && $order->completions===1 && $order->status==='processing' && $other->completions===0);
+    check('description snapshot never overwritten '.json_encode($description),Support::meta($order,'description')===$snapshot);
+    $before=[$order->meta,$order->notes,$order->save_count,$order->completions];
+    $response=contract_dispatch($handler,$raw);
+    check('different description confirmation stays idempotent '.json_encode($description),$response->get_status()===200 && webhook_trace('duplicate_webhook') && $before===[$order->meta,$order->notes,$order->save_count,$order->completions]);
+}
+foreach(['signature','reference','code','amount','currency'] as $field) {
+    [$order,$other]=contract_setup($contractFixture);$handler=new Webhook(new Notification($keydir));
+    $data=$contractFixture;$data['description']='SYNTHETIC-SIGNED-TEXT-DO-NOT-LOG';
+    $data['payments'][0]['product']=$data['payments'][0]['Product'];unset($data['payments'][0]['Product']);
+    if($field!=='signature'){$data[$field]=['reference'=>'csp-880099-12345678-1234-4234-8234-123456789abc','code'=>'OTHER-CODE','amount'=>'5.01','currency'=>'USD'][$field];}
+    $raw=signed($data);if($field==='signature'){$raw=str_replace('SYNTHETIC-SIGNED-TEXT-DO-NOT-LOG','TAMPERED-TEXT',$raw);}
+    $response=contract_dispatch($handler,$raw);
+    check('signed description cannot bypass mandatory control '.$field,$response->get_status()===($field==='signature'?401:409) && $order->completions===0 && $order->status==='on-hold' && !webhook_trace('payment_confirmed'));
+    check('provider description never logged '.$field,!str_contains(json_encode($GLOBALS['logger']->events),'SYNTHETIC-SIGNED-TEXT-DO-NOT-LOG') && !str_contains(json_encode($GLOBALS['logger']->events),'TAMPERED-TEXT'));
+}
+foreach(['missing','numeric','object'] as $type) {
+    [$order,$other]=contract_setup($contractFixture);$handler=new Webhook(new Notification($keydir));
+    $data=json_decode(signed($contractFixture),true);
+    if($type==='missing'){unset($data['description']);}else{$data['description']=$type==='numeric'?22:['text'=>'unexpected'];}
+    $response=contract_dispatch($handler,json_encode($data));
+    check('description signed-field structure still enforced '.$type,$response->get_status()===400 && !$GLOBALS['lookups'] && !$order->completions);
 }

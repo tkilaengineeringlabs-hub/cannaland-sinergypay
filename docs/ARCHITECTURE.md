@@ -112,7 +112,7 @@ La URL real se obtiene con rest_url() y aparece en los ajustes. No hay registro 
 4. Solo después verifica formato de la notificación SPEI y busca la referencia firmada mediante
    wc_get_orders. HPOS usa meta_query; legacy usa el filtro del data store de WooCommerce.
    Exige exactamente una orden con el gateway y toma su mutex.
-5. Recarga la orden. Verifica referencia, entorno, preparación, descripción, monto exacto,
+5. Recarga la orden. Verifica referencia, entorno, preparación, monto exacto,
    moneda y total actual. code debe coincidir con el ID remoto guardado como control adicional.
 6. El identificador financiero es el ticket raíz id firmado. code, payments y Product NO están
    cubiertos por la firma: son controles de consistencia, nunca correlación o identidad financiera.
@@ -139,7 +139,7 @@ Respuestas sin datos de orden. Estas convenciones deben validarse con SinergyPay
 | _cannaland_payments_environment | Entorno de la operación |
 | _cannaland_payments_amount | Snapshot decimal normalizado de monto |
 | _cannaland_payments_currency | Snapshot de moneda MXN |
-| _cannaland_payments_description | Descripción enviada y esperada firmada |
+| _cannaland_payments_description | Snapshot de descripción enviada al crear la orden; la descripción recibida se autentica por firma |
 | _cannaland_payments_remote_order_id | ID de orden SinergyPay |
 | _cannaland_payments_reference_num | Referencia numérica del proveedor, cuando viene |
 | _cannaland_payments_expiration_date | Vencimiento recibido, preservado con zona horaria |

@@ -226,7 +226,7 @@ foreach(['{','null','[]','{"amount":1,"amount":2}','{"x":1,"x":2}',str_repeat('x
     check('invalid or ambiguous JSON rejected',$webhook->process($bad)===400);
 }
 reset_state(); $o=ready(); $base=event($o);
-foreach([['reference'=>'csp-99-12345678-1234-4234-8234-000000000099'],['amount'=>'11.00'],['currency'=>'USD'],['code'=>'other'],['description'=>'Other'],['id'=>'bad|ticket']] as $change) {
+foreach([['reference'=>'csp-99-12345678-1234-4234-8234-000000000099'],['amount'=>'11.00'],['currency'=>'USD'],['code'=>'other'],['id'=>'bad|ticket']] as $change) {
     check('inconsistent event rejected '.key($change),$webhook->process(signed(array_replace($base,$change)))!==200 && $o->completions===0);
 }
 check('notification without payment shape rejected',$webhook->process(signed(array_replace($base,['payments'=>[]])))===400 && $o->completions===0);

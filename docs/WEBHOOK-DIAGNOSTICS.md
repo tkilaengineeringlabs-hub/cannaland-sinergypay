@@ -165,3 +165,36 @@ También se prueban contenedores ausentes/inválidos, IDs distintos, variantes c
 y rechazo de firma/monto/moneda/referencia/code incorrectos con product minúsculo.
 No se cambia creación SPEI ni CLABE, no se hacen llamadas financieras y no se genera ZIP.
 Falta comprobar la confirmación final del pedido con el webhook real una vez instalado el cambio.
+
+
+## description_mismatch: snapshot de creación frente a descripción firmada
+
+Evidencia comunicada por el cliente para #31097: firma válida, product minúsculo aceptado,
+orden localizada y rechazo description_mismatch en webhook_consistency. No se proporcionó
+el valor recibido y no se intenta deducirlo ni registrarlo.
+
+Preparation construye 'Cannaland order #' + ID, lo guarda en _cannaland_payments_description
+y lo envía en POST /orders/. El snapshot y la validación de la respuesta de creación no cambian.
+Por código, la descripción inicial de #31097 es Cannaland order #31097; no se consultó su BD.
+Webhook exigía además igualdad estricta entre description firmada y ese snapshot local.
+
+El PDF V3-Comercios-SPEI (p.4, p.6–7) define description como descripción del cobro y la incluye
+en id|currency|amount|description|reference|date, con null representado como vacío. No documenta
+un requisito adicional de comparación byte a byte con un snapshot del comercio ni reglas de
+normalización para esa comparación. Esto no demuestra cómo transforma el proveedor el texto;
+solo identifica una precondición local adicional que no es el mecanismo de asociación contractual.
+
+Se retira exclusivamente esa igualdad del webhook. description sigue siendo un campo requerido,
+string/null, se incorpora SIN normalizar a la misma cadena RSA/SHA-512 y cualquier alteración
+sin volver a firmar sigue fallando. El snapshot local no se sobrescribe y no se introduce logging
+de textos. No se modifica la verificación de la respuesta de creación.
+
+La asociación sigue exigiendo reference firmada exacta, gateway/entorno/preparación, code igual
+a remote_order_id, MXN y coincidencia de monto con snapshot/total WooCommerce. El ticket firmado,
+los claims y bloqueo mantienen la idempotencia. Product/product 22 permanece intacto.
+Tras el punto retirado se comprueba moneda, luego monto, estado/transacción e idempotencia.
+
+Pruebas sintéticas: descripción firmada distinta/vacía/null/UTF-8 más product minúsculo llegan
+a payment_confirmed y duplicados seguros; textos alterados sin firma, campos ausentes/tipos no
+admitidos y reference/code/amount/currency incorrectos siguen rechazados. Estos valores NO
+son reproducciones del valor real desconocido de #31097. Falta su confirmación final real.
