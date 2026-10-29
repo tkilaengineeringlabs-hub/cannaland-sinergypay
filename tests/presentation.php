@@ -86,7 +86,7 @@ foreach(['cannaland_cards','cannaland_cash','other'] as $method) {
 $GLOBALS['enqueued_styles']=[];$GLOBALS['enqueued_scripts']=[];
 $p->assets();check('presentation assets not loaded on unrelated pages',!$GLOBALS['enqueued_styles'] && !$GLOBALS['enqueued_scripts']);
 $GLOBALS['received_page']=true;$p->assets();
-check('thank-you assets isolated and versioned without dependencies',$GLOBALS['enqueued_styles'][0][0]==='cannaland-payments-spei' && $GLOBALS['enqueued_scripts'][0][2]===[] && $GLOBALS['enqueued_scripts'][0][3]==='0.3.6' && $GLOBALS['enqueued_scripts'][0][4]===true);
+check('thank-you assets isolated and versioned without dependencies',$GLOBALS['enqueued_styles'][0][0]==='cannaland-payments-spei' && $GLOBALS['enqueued_scripts'][0][2]===[] && $GLOBALS['enqueued_scripts'][0][3]==='0.3.7' && $GLOBALS['enqueued_scripts'][0][4]===true);
 $GLOBALS['received_page']=false;$GLOBALS['wc_endpoint']='view-order';$p->assets();
 check('My Account view-order also receives clipboard assets',count($GLOBALS['enqueued_scripts'])===2);
 unset($GLOBALS['wc_endpoint'],$GLOBALS['received_page']);
