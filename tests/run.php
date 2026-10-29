@@ -347,4 +347,5 @@ check('neutral persistent order lock',Support::lock(99) && array_key_exists('can
 require __DIR__.'/diagnostics.php';
 require __DIR__.'/presentation.php';
 require __DIR__.'/webhook-diagnostics.php';
+require __DIR__.'/webhook-contract-integration.php';
 echo "$count assertions passed. Synthetic fixtures and WooCommerce doubles; no live financial API.\n";

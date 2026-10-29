@@ -1,0 +1,22 @@
+{
+  "id": "28e62e93-c26b-4c26-a25b-7aea2bbbfbad",
+  "amount": "5.00",
+  "currency": "MXN",
+  "reference": "csp-880001-12345678-1234-4234-8234-123456789abc",
+  "reference_num": "123456",
+  "description": "chocolates",
+  "date": "2018-03-28T06:24:49.167657+00:00",
+  "code": "XM5BOqZ6",
+  "payments": [
+    {
+      "id": "821b9950-a60c-4bf5-b9ee-02b290e1e6c4",
+      "amount": "5.00",
+      "currency": "MXN",
+      "reference_num": "123456",
+      "Product": { "id": 22, "name": "SPEI" },
+      "wallet": "QR Pago",
+      "client": { "name": "Cliente sintético" }
+    }
+  ],
+  "security": { "key": "synthetic-contract-fixture", "version": 1, "signature": "" }
+}
