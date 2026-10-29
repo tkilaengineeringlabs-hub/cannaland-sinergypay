@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cannaland Payments
  * Description: Pasarela de pagos integrada para Cannaland.
- * Version: 0.3.5
+ * Version: 0.3.6
  * Requires at least: 6.2
  * Requires PHP: 8.0
  * Requires Plugins: woocommerce
@@ -11,7 +11,7 @@
  */
 defined( 'ABSPATH' ) || exit;
 define( 'CANNALAND_PAYMENTS_FILE', __FILE__ );
-define( 'CANNALAND_PAYMENTS_VERSION', '0.3.5' );
+define( 'CANNALAND_PAYMENTS_VERSION', '0.3.6' );
 require_once __DIR__ . '/includes/class-support.php';
 require_once __DIR__ . '/includes/class-diagnostics.php';
 require_once __DIR__ . '/includes/class-methods.php';

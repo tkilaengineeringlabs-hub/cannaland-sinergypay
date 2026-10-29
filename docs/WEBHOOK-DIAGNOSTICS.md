@@ -111,7 +111,7 @@ moneda, descripción, estado y vínculo remoto; payment_complete una sola vez; d
 confirmado => HTTP 200 sin repetir efectos. Los tests positivos usan RSA sintética y pedidos
 en memoria, nunca la orden #31084. El webhook real sigue PENDIENTE de validación.
 
-## Evidencia real #31087 y diagnóstico de Product/product
+## Evidencia real #31087 y diagnóstico de Product/product (0.3.6)
 
 El cliente confirmó en Horsements: webhook_received, luego webhook_rejected en webhook_shape,
 reason=payment_product_invalid, signature_verified=true, HTTP 400; finalmente el resumen
