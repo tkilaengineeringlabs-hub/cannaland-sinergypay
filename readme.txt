@@ -1,7 +1,7 @@
 === Cannaland Payments ===
 Requires at least: 6.2
 Requires PHP: 8.0
-Stable tag: 0.3.7
+Stable tag: 0.3.8
 Tags: woocommerce, spei, payments
 
 Pasarela de pagos integrada para Cannaland.
@@ -32,6 +32,10 @@ Se bloquea el reintento automático y se requiere conciliación administrativa.
 No. Solo la notificación válida puede confirmar automáticamente un pago nuevo.
 
 == Changelog ==
+= 0.3.8 =
+Incluye fa901e0: description se autentica por firma sin exigir igualdad con el snapshot de creación.
+Conserva soporte estricto Product/product (590e904) y todos los controles financieros restantes.
+
 = 0.3.7 =
 Acepta Product/product en notificaciones SPEI verificadas, manteniendo validación estricta de ID 22.
 Incluye corrección 590e904 y pruebas de confirmación e idempotencia.

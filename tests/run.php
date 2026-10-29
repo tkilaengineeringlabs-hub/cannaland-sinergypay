@@ -4,7 +4,7 @@ error_reporting( E_ALL );
 set_error_handler( static function ( $level, $message, $file, $line ) { throw new ErrorException( $message, 0, $level, $file, $line ); } );
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'CANNALAND_PAYMENTS_FILE', ( getenv( 'CSP_PLUGIN_ROOT' ) ?: dirname( __DIR__ ) ) . '/cannaland-payments.php' );
-define( 'CANNALAND_PAYMENTS_VERSION', '0.3.7' );
+define( 'CANNALAND_PAYMENTS_VERSION', '0.3.8' );
 class WP_Error {
     private string $code; private string $message;
     public function __construct( $code, $message = '' ) { $this->code = $code; $this->message = $message; }
