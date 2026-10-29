@@ -17,3 +17,7 @@ La prueba llama al callback registrado real, Notification y Webhook de producci�
 WordPress/WooCommerce y sus datos se sustituyen por dobles en memoria. El doble existente
 Order::payment_complete simula processing; no demuestra hooks de stock, emails o base de
 datos de una instalación WooCommerce real. No crea órdenes remotas ni solicita CLABE.
+
+La regresión de casing transforma únicamente Product a product en memoria, conforme a la
+estructura real comunicada por el cliente tras validar la firma. La firma de prueba sigue
+siendo sintética: no se atribuye autenticidad de proveedor al fixture ni se reemplazan las llaves.

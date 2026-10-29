@@ -105,3 +105,48 @@ foreach(['modified signed amount','missing signature','wrong key','unsupported s
     $response=contract_dispatch($handler,$raw);
     check('contract security rejected before association '.$case,$response->get_status()===401 && $GLOBALS['lookups']===0 && $order->completions===0 && $order->status==='on-hold' && !webhook_trace('payment_confirmed'));
 }
+
+// Real Lab evidence established lowercase casing/types, not a distributable real signed fixture.
+// Use controlled RSA and the same production callback for both accepted representations.
+foreach(['Product','product','both'] as $variant) {
+    [$order,$other]=contract_setup($contractFixture);$handler=new Webhook(new Notification($keydir));
+    $data=$contractFixture;
+    if($variant!=='Product'){$data['payments'][0]['product']=$data['payments'][0]['Product'];if($variant==='product'){unset($data['payments'][0]['Product']);}}
+    $raw=signed($data);$response=contract_dispatch($handler,$raw);
+    check('SPEI product casing confirms via production callback '.$variant,$response->get_status()===200 && webhook_trace('payment_confirmed')['signature_verified']===true && $order->completions===1 && $order->status==='processing' && Support::meta($order,'confirmation_state')==='paid' && $other->completions===0);
+    check('SPEI product casing preserves transaction association '.$variant,$order->get_transaction_id()===$data['id'] && Support::meta($order,'reference')===$data['reference']);
+    $before=[$order->meta,$order->status,$order->notes,$order->completions,$order->save_count];
+    $response=contract_dispatch($handler,$raw);
+    check('SPEI product casing duplicate never confirms twice '.$variant,$response->get_status()===200 && webhook_trace('duplicate_webhook') && $before===[$order->meta,$order->status,$order->notes,$order->completions,$order->save_count]);
+    check('SPEI product casing creates no external operations '.$variant,!$GLOBALS['requests']);
+}
+foreach(['Product','product'] as $variant) {
+    foreach([null,[],22,(object)[],['id'=>null],['id'=>'22'],['id'=>true],['id'=>21],['id'=>23]] as $invalid) {
+        [$order,$other]=contract_setup($contractFixture);$handler=new Webhook(new Notification($keydir));
+        $data=$contractFixture;unset($data['payments'][0]['Product']);$data['payments'][0][$variant]=$invalid;
+        $response=contract_dispatch($handler,signed($data));
+        check('SPEI product invalid container/type/id rejected '.$variant.' '.json_encode($invalid),$response->get_status()===400 && webhook_trace('webhook_rejected')['reason']==='payment_product_invalid' && webhook_trace('webhook_rejected')['signature_verified']===true && $GLOBALS['lookups']===0 && $order->status==='on-hold' && $order->completions===0);
+    }
+}
+foreach([
+    [],
+    ['Product'=>null,'product'=>null],
+    ['Product'=>['id'=>23],'product'=>['id'=>22]],
+    ['Product'=>['id'=>22],'product'=>['id'=>23]],
+    ['Product'=>null,'product'=>['id'=>22]],
+    ['Product'=>['id'=>22],'product'=>null],
+] as $containers) {
+    [$order,$other]=contract_setup($contractFixture);$handler=new Webhook(new Notification($keydir));
+    $data=$contractFixture;unset($data['payments'][0]['Product']);$data['payments'][0]=array_merge($data['payments'][0],$containers);
+    $response=contract_dispatch($handler,signed($data));
+    check('absent invalid or conflicting variants remain rejected '.json_encode($containers),$response->get_status()===400 && $order->completions===0 && $order->status==='on-hold' && !$GLOBALS['lookups']);
+}
+// Lowercase cannot bypass any downstream security or consistency check.
+foreach(['signature','amount','currency','reference','code'] as $field) {
+    [$order,$other]=contract_setup($contractFixture);$handler=new Webhook(new Notification($keydir));
+    $data=$contractFixture;$data['payments'][0]['product']=$data['payments'][0]['Product'];unset($data['payments'][0]['Product']);
+    if($field!=='signature'){$data[$field]=['amount'=>'5.01','currency'=>'USD','reference'=>'csp-880099-12345678-1234-4234-8234-123456789abc','code'=>'OTHER-CODE'][$field];}
+    $raw=signed($data);if($field==='signature'){$raw=str_replace('"description":"chocolates"','"description":"changed"',$raw);}
+    $response=contract_dispatch($handler,$raw);
+    check('lowercase preserves security and association '.$field,$response->get_status()===($field==='signature'?401:409) && $order->completions===0 && $order->status==='on-hold' && !webhook_trace('payment_confirmed'));
+}

@@ -94,7 +94,6 @@ check('WP-CLI helper never names a real order or bypasses signature',array_keys(
 
 // Hypotheses only: no actual payments item for #31087 has been supplied.
 $cases = [
- ['lowercase product', ['id'=>'synthetic-payment','product'=>['id'=>22]], 'Product_not_object', 'missing','missing','object','json_number'],
  ['string Product id', ['id'=>'synthetic-payment','Product'=>['id'=>'22']], 'Product_id_not_number','object','string','missing','missing'],
  ['missing Product id', ['id'=>'synthetic-payment','Product'=>[]], 'Product_not_object','array','missing','missing','missing'],
  ['null Product', ['id'=>'synthetic-payment','Product'=>null], 'Product_not_object','null','missing','missing','missing'],

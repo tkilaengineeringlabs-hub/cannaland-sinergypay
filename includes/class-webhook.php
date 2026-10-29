@@ -91,10 +91,10 @@ final class Webhook {
             $payload = $event['payload'];
             if ( ! is_array( $payload->payments ?? null ) || ! $payload->payments ) { return $this->outcome( 'webhook_rejected', 400, $stage, 0, 'payments_shape_invalid', true, Diagnostics::notification_shape( $payload ) ); }
             foreach ( $payload->payments as $payment_index => $payment ) {
-                if ( ! $payment instanceof \stdClass || ! Support::id( $payment->id ?? null ) ||
-                    ! ( $payment->Product ?? null ) instanceof \stdClass ||
-                    ! ( $payment->Product->id ?? null ) instanceof JsonNumber || '22' !== $payment->Product->id->text ) {
-                    return $this->outcome( 'webhook_rejected', 400, $stage, 0, 'payment_product_invalid', true, Diagnostics::payment_product_shape( $payment, (int) $payment_index ) );
+                $invalid_payment = ! $payment instanceof \stdClass || ! Support::id( $payment->id ?? null );
+                $product_error = $invalid_payment ? null : $this->product_error( $payment );
+                if ( $invalid_payment || null !== $product_error ) {
+                    return $this->outcome( 'webhook_rejected', 400, $stage, 0, 'payment_product_invalid', true, Diagnostics::payment_product_shape( $payment, (int) $payment_index, $product_error ) );
                 }
             }
             // Only authenticated reference is used for lookup; unsigned code and payments never select an order.
@@ -110,6 +110,20 @@ final class Webhook {
             Support::log( 'webhook_internal' );
             return $this->outcome( 'webhook_exception', 500, $stage, $id, 'exception', $verified, array( 'exception' => $e ) );
         }
+    }
+    /** Official PDF uses Product; the verified Lab notification uses product. Validate every supplied variant. */
+    private function product_error( \stdClass $payment ): ?string {
+        $found = false;
+        foreach ( array( 'Product', 'product' ) as $name ) {
+            if ( ! property_exists( $payment, $name ) ) { continue; }
+            $found = true;
+            $product = $payment->{$name};
+            if ( ! $product instanceof \stdClass ) { return $name . '_not_object'; }
+            if ( ! ( $product->id ?? null ) instanceof JsonNumber ) { return $name . '_id_not_number'; }
+            if ( '22' !== $product->id->text ) { return $name . '_id_not_expected_token'; }
+        }
+        // If both are supplied, neither may contradict or bypass the other.
+        return $found ? null : 'Product_not_object';
     }
     private function complete( int $id, string $env, array $event ): int {
         $order = wc_get_order( $id );

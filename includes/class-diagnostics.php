@@ -82,7 +82,7 @@ final class Diagnostics {
                     if ( in_array( $shape[$field] ?? null, self::TYPES, true ) ) { $context['payment_product_shape'][$field] = $shape[$field]; }
                 }
                 if ( is_int( $shape['index'] ?? null ) && $shape['index'] >= 0 && $shape['index'] <= 65536 ) { $context['payment_product_shape']['index'] = $shape['index']; }
-                if ( in_array( $shape['failed_check'] ?? null, array( 'payment_not_object', 'payment_id_invalid', 'Product_not_object', 'Product_id_not_number', 'Product_id_not_expected_token', 'none' ), true ) ) {
+                if ( in_array( $shape['failed_check'] ?? null, array( 'payment_not_object', 'payment_id_invalid', 'Product_not_object', 'Product_id_not_number', 'Product_id_not_expected_token', 'product_not_object', 'product_id_not_number', 'product_id_not_expected_token', 'none' ), true ) ) {
                     $context['payment_product_shape']['failed_check'] = $shape['failed_check'];
                 }
             }
@@ -109,7 +109,7 @@ final class Diagnostics {
         }
     }
     /** Structure only, from the rejected item after signature verification; never field values. */
-    public static function payment_product_shape( $payment, int $index ): array {
+    public static function payment_product_shape( $payment, int $index, ?string $product_error = null ): array {
         $field_type = static function ( $object, string $field ): string {
             if ( ! $object instanceof \stdClass || ! property_exists( $object, $field ) ) { return 'missing'; }
             $value = $object->{$field};
@@ -128,7 +128,7 @@ final class Diagnostics {
             'payment_id_type' => $field_type( $payment, 'id' ),
             'Product_type' => $field_type( $payment, 'Product' ), 'Product_id_type' => $field_type( $upper, 'id' ),
             'product_type' => $field_type( $payment, 'product' ), 'product_id_type' => $field_type( $lower, 'id' ),
-            'failed_check' => $failed,
+            'failed_check' => $product_error ?? $failed,
         ) );
     }
     public static function notification_shape( \stdClass $payload ): array {

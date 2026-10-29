@@ -96,7 +96,7 @@ basta para confirmar compatibilidad. Estos son los requisitos actuales, no nuevo
 | security | Objeto con version numérico exactamente 1, key string y signature Base64 canónica. version string "1", campos anidados de otra forma o firmas con otro encoding fallan. key no selecciona archivos. |
 | RSA | PKCS#1 v1.5 + SHA-512 y llave oficial del entorno; cadena id\|currency\|amount\|description\|reference\|date, sin cambios. |
 | reference | csp-ID-UUID y coincidencia exacta con metadata. Solo después de firma se utiliza para búsqueda HPOS/CRUD. |
-| payments | Array no vacío; cada elemento tiene id string válido y Product.id numérico 22, con P mayúscula. id string "22", product minúscula, omisión o distinto anidamiento se rechazan. |
+| payments | Array no vacío; cada elemento tiene id string válido y Product.id o product.id numérico 22. Se admiten ambos casing; si ambos aparecen se validan los dos. id string "22", omisión o contenedores inválidos se rechazan. |
 | code | String igual a remote_order_id guardado. No se usa para seleccionar la orden. Confirmar con payload real qué representa. |
 | id raíz | Actualmente identifica el ticket firmado y transaction ID. Hay que comprobar esa semántica con la notificación real; no sustituirlo por payments[].id sin evidencia. |
 | reference_num / clabe | Son extras admitidos; no sustituyen reference ni demuestran pago. No se usan para confirmar. |
@@ -144,3 +144,24 @@ representan hipótesis controladas (casing, string/número, campos ausentes, nul
 no una reproducción atribuida a SinergyPay. Hace falta un reenvío controlado con este código
 instalado y el bloque payment_product_shape del log para decidir si existe evidencia suficiente
 para cambiar la validación. No se alteraron referencias, conciliación, creación, CLABE ni RSA.
+
+
+## Corrección confirmada: product en minúscula
+
+El cliente aportó la forma real observada tras firma válida: payment_type=object,
+payment_id_type=string, Product ausente, product objeto y product.id json_number;
+el chequeo que falló fue Product_not_object. Esa evidencia justifica admitir product
+además de Product (variante publicada en el PDF). No se considera un payload RAW completo.
+
+Webhook::product_error valida únicamente los dos nombres permitidos, exige contenedor
+objeto e id JsonNumber con el mismo token 22 que antes. Si ambos están presentes, ambos
+deben ser válidos; no hay fallback de un contenedor inválido hacia otro válido. No se cambia
+firma, asociación, comparación monetaria, snapshots ni idempotencia. El diagnóstico de un
+rechazo minúsculo usa product_not_object/product_id_not_number/product_id_not_expected_token.
+
+Pruebas sintéticas integradas: cada casing y ambos válidos llegan por el callback de producción
+a payment_confirmed; el mismo evento repetido devuelve duplicate_webhook sin efectos extra.
+También se prueban contenedores ausentes/inválidos, IDs distintos, variantes contradictorias
+y rechazo de firma/monto/moneda/referencia/code incorrectos con product minúsculo.
+No se cambia creación SPEI ni CLABE, no se hacen llamadas financieras y no se genera ZIP.
+Falta comprobar la confirmación final del pedido con el webhook real una vez instalado el cambio.
