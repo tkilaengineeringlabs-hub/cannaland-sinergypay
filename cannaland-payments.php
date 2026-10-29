@@ -1,6 +1,7 @@
 <?php
 /**
  * Plugin Name: Cannaland Payments
+ * Author: Tkila Intelligence Labs
  * Description: Pasarela de pagos integrada para Cannaland.
  * Version: 0.3.8
  * Requires at least: 6.2
