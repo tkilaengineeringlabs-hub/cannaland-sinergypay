@@ -91,3 +91,39 @@ $o=webhook_setup();define('WP_CLI',true);ob_start();require __DIR__.'/../scripts
 $probe=json_decode($GLOBALS['probe_request']->get_body(),true);
 check('WP-CLI helper dispatches unsigned probe to exact POST route',str_contains($probeOutput,'HTTP 401') && str_contains($probeOutput,'Response data: null') && $GLOBALS['probe_request']->get_route()==='/cannaland-payments/v1/payment-notification' && $GLOBALS['probe_request']->get_method()==='POST');
 check('WP-CLI helper never names a real order or bypasses signature',array_keys($probe)===['probe'] && $GLOBALS['lookups']===0 && $o->completions===0 && webhook_trace('invalid_signature')['reason']==='security_missing');
+
+// Hypotheses only: no actual payments item for #31087 has been supplied.
+$cases = [
+ ['lowercase product', ['id'=>'synthetic-payment','product'=>['id'=>22]], 'Product_not_object', 'missing','missing','object','json_number'],
+ ['string Product id', ['id'=>'synthetic-payment','Product'=>['id'=>'22']], 'Product_id_not_number','object','string','missing','missing'],
+ ['missing Product id', ['id'=>'synthetic-payment','Product'=>[]], 'Product_not_object','array','missing','missing','missing'],
+ ['null Product', ['id'=>'synthetic-payment','Product'=>null], 'Product_not_object','null','missing','missing','missing'],
+ ['wrong numeric token', ['id'=>'synthetic-payment','Product'=>['id'=>99]], 'Product_id_not_expected_token','object','json_number','missing','missing'],
+ ['numeric payment id', ['id'=>123,'Product'=>['id'=>22]], 'payment_id_invalid','object','json_number','missing','missing'],
+ ['payment id missing', ['Product'=>['id'=>22]], 'payment_id_invalid','object','json_number','missing','missing'],
+ ['payment scalar', 'synthetic-secret-value', 'payment_not_object','missing','missing','missing','missing'],
+];
+foreach ($cases as [$label,$item,$failed,$upperType,$upperIdType,$lowerType,$lowerIdType]) {
+ $o=webhook_setup();$body=signed(event($o,['payments'=>[$item]]));$response=$webhook->receive(webhook_request($body));
+ $context=webhook_trace('webhook_rejected');$shape=$context['payment_product_shape'];
+ check('product diagnostic preserves rejection '.$label,$response->status===400 && $context['reason']==='payment_product_invalid' && $context['signature_verified']===true && $GLOBALS['lookups']===0 && $o->completions===0);
+ check('product diagnostic pinpoints shape '.$label,$shape['index']===0 && $shape['failed_check']===$failed && $shape['Product_type']===$upperType && $shape['Product_id_type']===$upperIdType && $shape['product_type']===$lowerType && $shape['product_id_type']===$lowerIdType);
+ check('product values never logged '.$label,!str_contains(json_encode($GLOBALS['logger']->events),'synthetic-payment') && !str_contains(json_encode($GLOBALS['logger']->events),'synthetic-secret-value'));
+}
+$o=webhook_setup();$data=event($o);$data['payments'][]=['id'=>'sensitive-id','product'=>['id'=>'sensitive-product-id','secret'=>'sensitive-secret-key']];
+$webhook->receive(webhook_request(signed($data)));$shape=webhook_trace('webhook_rejected')['payment_product_shape'];
+check('only rejected item index described',$shape['index']===1 && $shape['product_id_type']==='string');
+$log=json_encode($GLOBALS['logger']->events);
+check('no nested values unknown keys references signatures or CLABE in shape log',!str_contains($log,'sensitive-') && !str_contains($log,Support::meta($o,'reference')) && !str_contains($log,Support::meta($o,'clabe')));
+// Empty object differs from array and must be distinguishable.
+$o=webhook_setup();$webhook->receive(webhook_request(signed(event($o,['payments'=>[['id'=>'synthetic','Product'=>(object)[]]]]))));
+check('missing id in Product object identified',webhook_trace('webhook_rejected')['payment_product_shape']['failed_check']==='Product_id_not_number' && webhook_trace('webhook_rejected')['payment_product_shape']['Product_id_type']==='missing');
+$o=webhook_setup();$body=signed(event($o));$invalid=json_decode($body,true);$invalid['security']['signature']='invalid';
+$webhook->receive(webhook_request(json_encode($invalid)));
+check('nested product diagnostics not emitted before valid signature',!str_contains(json_encode($GLOBALS['logger']->events),'payment_product_shape'));
+$o=webhook_setup();$GLOBALS['options'][Support::OPTION]['logging']='no';$webhook->receive(webhook_request(signed(event($o,['payments'=>[['id'=>'synthetic','product'=>['id'=>22]]]]))));
+check('nested product diagnostics obey logging switch',!$GLOBALS['logger']->events);
+
+$o=webhook_setup();$raw=signed(event($o));$raw=str_replace('"Product":{"id":22,','"Product":{"id":22.0,',$raw);
+$response=$webhook->receive(webhook_request($raw));
+check('numeric lexical mismatch diagnosed without recording value',$response->status===400 && webhook_trace('webhook_rejected')['payment_product_shape']['Product_id_type']==='json_number' && webhook_trace('webhook_rejected')['payment_product_shape']['failed_check']==='Product_id_not_expected_token' && $o->completions===0);

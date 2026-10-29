@@ -90,11 +90,11 @@ final class Webhook {
             // payment details are unsigned consistency data, never our transaction identity.
             $payload = $event['payload'];
             if ( ! is_array( $payload->payments ?? null ) || ! $payload->payments ) { return $this->outcome( 'webhook_rejected', 400, $stage, 0, 'payments_shape_invalid', true, Diagnostics::notification_shape( $payload ) ); }
-            foreach ( $payload->payments as $payment ) {
+            foreach ( $payload->payments as $payment_index => $payment ) {
                 if ( ! $payment instanceof \stdClass || ! Support::id( $payment->id ?? null ) ||
                     ! ( $payment->Product ?? null ) instanceof \stdClass ||
                     ! ( $payment->Product->id ?? null ) instanceof JsonNumber || '22' !== $payment->Product->id->text ) {
-                    return $this->outcome( 'webhook_rejected', 400, $stage, 0, 'payment_product_invalid', true );
+                    return $this->outcome( 'webhook_rejected', 400, $stage, 0, 'payment_product_invalid', true, Diagnostics::payment_product_shape( $payment, (int) $payment_index ) );
                 }
             }
             // Only authenticated reference is used for lookup; unsigned code and payments never select an order.

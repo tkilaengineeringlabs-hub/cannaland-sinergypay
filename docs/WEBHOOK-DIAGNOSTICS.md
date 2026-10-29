@@ -110,3 +110,37 @@ La confirmación válida conserva: ticket único por entorno, bloqueo por orden,
 moneda, descripción, estado y vínculo remoto; payment_complete una sola vez; duplicado ya
 confirmado => HTTP 200 sin repetir efectos. Los tests positivos usan RSA sintética y pedidos
 en memoria, nunca la orden #31084. El webhook real sigue PENDIENTE de validación.
+
+## Evidencia real #31087 y diagnóstico de Product/product
+
+El cliente confirmó en Horsements: webhook_received, luego webhook_rejected en webhook_shape,
+reason=payment_product_invalid, signature_verified=true, HTTP 400; finalmente el resumen
+webhook_dispatch_rejected. Esto confirma exposición pública, entrega Lab y verificación RSA
+para ese intento. No confirma la estructura de payments ni una orden pagada mediante webhook.
+
+La condición actual agrupa cinco comprobaciones: elemento payments[] objeto, su id string
+válido según Support::id, Product (P mayúscula) objeto, Product.id número JSON preservado
+como JsonNumber y texto numérico exactamente '22'. No busca product en minúscula ni convierte
+'22' string o 22.0 a 22. No se cambió esta condición.
+
+Al rechazar, y solo después de firma válida, el mismo evento incorpora payment_product_shape:
+- index: índice del elemento rechazado (base cero).
+- payment_type / payment_id_type.
+- Product_type / Product_id_type (mayúscula).
+- product_type / product_id_type (minúscula, solo observación).
+- failed_check: payment_not_object, payment_id_invalid, Product_not_object,
+  Product_id_not_number o Product_id_not_expected_token.
+
+Tipos posibles: missing (campo ausente o padre no objeto), null, string, json_number,
+object, array, boolean. JsonNumber es la representación interna que conserva el lexema JSON;
+no se registra ese lexema ni ningún ID. El último chequeo solo informa que no coincide con
+el token requerido actualmente, nunca el valor recibido. No se enumeran otras claves anidadas.
+No se registran referencias, CLABE, firmas, key, tokens, credenciales ni payloads.
+El bloque anidado no está incluido en la cadena de firma actual: se observa su forma, sin
+tratar sus valores como autenticados ni usarlos para seleccionar la orden.
+
+Aún no se recibió la estructura real del elemento rechazado. Por eso los fixtures nuevos
+representan hipótesis controladas (casing, string/número, campos ausentes, null, arrays, etc.),
+no una reproducción atribuida a SinergyPay. Hace falta un reenvío controlado con este código
+instalado y el bloque payment_product_shape del log para decidir si existe evidencia suficiente
+para cambiar la validación. No se alteraron referencias, conciliación, creación, CLABE ni RSA.

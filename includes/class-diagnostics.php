@@ -76,6 +76,16 @@ final class Diagnostics {
                     if ( in_array( $details['field_types'][$key] ?? null, self::TYPES, true ) ) { $context['field_types'][$key] = $details['field_types'][$key]; }
                 }
             }
+            if ( is_array( $details['payment_product_shape'] ?? null ) ) {
+                $shape = $details['payment_product_shape'];
+                foreach ( array( 'payment_type', 'payment_id_type', 'Product_type', 'Product_id_type', 'product_type', 'product_id_type' ) as $field ) {
+                    if ( in_array( $shape[$field] ?? null, self::TYPES, true ) ) { $context['payment_product_shape'][$field] = $shape[$field]; }
+                }
+                if ( is_int( $shape['index'] ?? null ) && $shape['index'] >= 0 && $shape['index'] <= 65536 ) { $context['payment_product_shape']['index'] = $shape['index']; }
+                if ( in_array( $shape['failed_check'] ?? null, array( 'payment_not_object', 'payment_id_invalid', 'Product_not_object', 'Product_id_not_number', 'Product_id_not_expected_token', 'none' ), true ) ) {
+                    $context['payment_product_shape']['failed_check'] = $shape['failed_check'];
+                }
+            }
             if ( isset( $details['exception'] ) && $details['exception'] instanceof \Throwable ) {
                 $class = get_class( $details['exception'] );
                 $context['exception_class'] = strlen( $class ) <= 160 && preg_match( '/^[A-Za-z_][A-Za-z0-9_\\\\]*$/D', $class ) ? $class : 'anonymous_or_unrecognized_throwable';
@@ -97,6 +107,29 @@ final class Diagnostics {
         } catch ( \Throwable $ignored ) {
             // Diagnostics must never change payment semantics, retry a POST or throw to checkout.
         }
+    }
+    /** Structure only, from the rejected item after signature verification; never field values. */
+    public static function payment_product_shape( $payment, int $index ): array {
+        $field_type = static function ( $object, string $field ): string {
+            if ( ! $object instanceof \stdClass || ! property_exists( $object, $field ) ) { return 'missing'; }
+            $value = $object->{$field};
+            return $value instanceof JsonNumber ? 'json_number' : self::type( $value );
+        };
+        $upper = $payment instanceof \stdClass ? ( $payment->Product ?? null ) : null;
+        $lower = $payment instanceof \stdClass ? ( $payment->product ?? null ) : null;
+        $failed = 'none';
+        if ( ! $payment instanceof \stdClass ) { $failed = 'payment_not_object'; }
+        elseif ( ! Support::id( $payment->id ?? null ) ) { $failed = 'payment_id_invalid'; }
+        elseif ( ! $upper instanceof \stdClass ) { $failed = 'Product_not_object'; }
+        elseif ( ! ( $upper->id ?? null ) instanceof JsonNumber ) { $failed = 'Product_id_not_number'; }
+        elseif ( '22' !== $upper->id->text ) { $failed = 'Product_id_not_expected_token'; }
+        return array( 'payment_product_shape' => array(
+            'index' => $index, 'payment_type' => $payment instanceof JsonNumber ? 'json_number' : self::type( $payment ),
+            'payment_id_type' => $field_type( $payment, 'id' ),
+            'Product_type' => $field_type( $payment, 'Product' ), 'Product_id_type' => $field_type( $upper, 'id' ),
+            'product_type' => $field_type( $payment, 'product' ), 'product_id_type' => $field_type( $lower, 'id' ),
+            'failed_check' => $failed,
+        ) );
     }
     public static function notification_shape( \stdClass $payload ): array {
         $details = array( 'response_keys' => array_keys( get_object_vars( $payload ) ), 'field_types' => array() );
